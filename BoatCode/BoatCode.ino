@@ -4,7 +4,7 @@
 #include "HT_SSD1306Wire.h"
 #include "LoRaWan_APP.h"
 
-// LoRa Constants
+// LoRa Configuration Constants
 #define RF_FREQUENCY 915000000 // Hz
 #define TX_OUTPUT_POWER 14 // dBm
 #define LORA_BANDWIDTH 0 // [0: 125 kHz, 1: 250 kHz, 2: 500 kHz, 3: Reserved]
@@ -48,7 +48,7 @@ union boatMsg {
 };
 
 
-
+// Declare radio events
 static RadioEvents_t RadioEvents;
 void OnTxDone( void );
 void OnTxTimeout( void );
@@ -80,17 +80,19 @@ void setup() {
 
   GPS.begin();
 
+  // Steering Left
   pinMode(GPIO7, OUTPUT);
+  // Steering Right
   pinMode(GPIO6, OUTPUT);
+  // Forward or Reverse
   pinMode(GPIO5, OUTPUT);
+  // This is the PWM pin 2 that is not used?
   pinMode(GPIO4, OUTPUT);
   digitalWrite(GPIO4, HIGH);
 
-  
-
 }
 
-
+// Initialize throttle variables
 int throttle = 0;
 int throttleState = 0;
 
@@ -143,7 +145,8 @@ void doActions() {
       throttle = 1000;
     } else {
       throttle += 2500;
-      throttle = min(throttle, (3*UINT16_MAX)/4);
+      //throttle = min(throttle, (3*UINT16_MAX)/4);
+      throttle = min(throttle, (19*UINT16_MAX)/20);
     }
     digitalWrite(GPIO5, LOW);
     analogWrite(PWM1, throttle);
@@ -153,7 +156,8 @@ void doActions() {
       throttle = 1000;
     } else {
       throttle += 2500;
-      throttle = min(throttle, (3*UINT16_MAX)/4);
+      //throttle = min(throttle, (3*UINT16_MAX)/4);
+      throttle = min(throttle, (19*UINT16_MAX)/20);
     }
     digitalWrite(GPIO5, HIGH);
     analogWrite(PWM1, throttle);
