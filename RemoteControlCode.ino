@@ -24,10 +24,11 @@
 #define RX_TIMEOUT_VALUE 1000
 #define BUFFER_SIZE 30 // Define the payload size here
 
-#define JOYSTICK1_NEUTRAL 3500
-#define JOYSTICK1_HIGH    1500
-#define JOYSTICK2_NEUTRAL 3500
-#define JOYSTICK2_LOW    1500
+#define JOYSTICK1_NEUTRAL 2650  // Center of the throttle
+#define JOYSTICK2_NEUTRAL 2860  // Center of the steering
+
+#define JOYSTICK1_DEADZONE 350  // Deadzone for the throttle
+#define JOYSTICK2_DEADZONE 350  // Deadzone for the steering
 
 //Global Variables
 static SSD1306Wire display(0x3c, 500000, SDA, SCL, GEOMETRY_128_64, GPIO10); // addr, freq, SDA, SCL, resolution, rst
@@ -44,6 +45,7 @@ union controllerMsg {
     bool isSteeringLeft;
     bool isSteeringRight;
     bool killswitch;
+    //bool automation;
   } status;
   uint8_t str[13];
 };
@@ -68,7 +70,7 @@ void OnRxTimeout( void );
 int signalStrength = 0;
 uint32_t signalTime = 0;
 
-int displaySelector = 0;
+int displaySelector = 48;
 char displayString[32];
 
 // Functions declaration
@@ -83,34 +85,45 @@ controllerMsg updateStatusVals() {
   memcpy(outboundMsg.status.secretCode, CONTROLLERMSG_CODE, sizeof(CONTROLLERMSG_CODE));  
   
   // Update throttle commands
-  int reading = analogRead(ADC1);
-  if (reading > JOYSTICK1_NEUTRAL) {
-    outboundMsg.status.isGoingForward = false;
-    outboundMsg.status.isGoingBackward = false;
-  } else if (reading > JOYSTICK1_HIGH) {
-    outboundMsg.status.isGoingForward = false;
-    outboundMsg.status.isGoingBackward = true;
-  } else {
-    outboundMsg.status.isGoingForward = true;
-    outboundMsg.status.isGoingBackward = false;
-  }
+  int reading1 = analogRead(ADC1);
+    if (reading1 > JOYSTICK1_NEUTRAL + JOYSTICK1_DEADZONE || reading1 < JOYSTICK1_NEUTRAL - JOYSTICK1_DEADZONE) {
+      // Joystick is outside the deadzone
+      if (reading1 > JOYSTICK1_NEUTRAL + JOYSTICK1_DEADZONE) {
+        outboundMsg.status.isGoingForward = true;
+        outboundMsg.status.isGoingBackward = false;
+      } else {
+        outboundMsg.status.isGoingForward = false;
+        outboundMsg.status.isGoingBackward = true;
+      }
+    } else {
+      // Joystick is within the deadzone
+      outboundMsg.status.isGoingForward = false;
+      outboundMsg.status.isGoingBackward = false;
+    }
 
-  // Update steering commands
-  reading = analogRead(ADC2);
-  if (reading > JOYSTICK2_NEUTRAL) {
-    outboundMsg.status.isSteeringRight = false;
-    outboundMsg.status.isSteeringLeft = false;
-  } else if (reading > JOYSTICK2_LOW) {
-    outboundMsg.status.isSteeringRight = false;
-    outboundMsg.status.isSteeringLeft = true;
-  } else {
-    outboundMsg.status.isSteeringRight = true;
-    outboundMsg.status.isSteeringLeft = false;
-  }
+    // Update steering commands with deadzone for Joystick 2
+    int reading2 = analogRead(ADC2);
+    if (reading2 > JOYSTICK2_NEUTRAL + JOYSTICK2_DEADZONE || reading2 < JOYSTICK2_NEUTRAL - JOYSTICK2_DEADZONE) {
+      // Joystick is outside the deadzone
+      if (reading2 > JOYSTICK2_NEUTRAL + JOYSTICK2_DEADZONE) {
+        outboundMsg.status.isSteeringRight = true;
+        outboundMsg.status.isSteeringLeft = false;
+      } else {
+        outboundMsg.status.isSteeringRight = false;
+        outboundMsg.status.isSteeringLeft = true;
+      }
+    } else {
+      // Joystick is within the deadzone
+      outboundMsg.status.isSteeringRight = false;
+      outboundMsg.status.isSteeringLeft = false;
+    }
 
   // Update killswitch
   outboundMsg.status.killswitch = digitalRead(GPIO3);
   
+  // Update automation
+  //outboundMsg.status.automation = digitalRead(GPIO7);
+
   return outboundMsg;
 }
 
@@ -120,18 +133,18 @@ controllerMsg updateStatusVals() {
 void displayTeamName() {
   display.setTextAlignment(TEXT_ALIGN_LEFT);
   display.setFont(ArialMT_Plain_16);
-  display.drawStringMaxWidth(0, 0, 128, "Team 10:Bluegrass Boataneers");
+  display.drawStringMaxWidth(0, 0, 128, "Team 01: KEMT");
 }
 
 void displayThrottle() {
   int throtReading = analogRead(ADC1);
   
-  if (throtReading > JOYSTICK1_NEUTRAL) {
-    snprintf(displayString, sizeof(displayString), "MID:  %d", throtReading);
-  } else if (throtReading > JOYSTICK1_HIGH) {
-    snprintf(displayString, sizeof(displayString), "LOW: %d", throtReading);
+  if (throtReading < JOYSTICK1_NEUTRAL + JOYSTICK1_DEADZONE && throtReading > JOYSTICK1_NEUTRAL - JOYSTICK1_DEADZONE) {
+    snprintf(displayString, sizeof(displayString), "Idle:  %d", throtReading);
+  } else if (throtReading > JOYSTICK1_NEUTRAL + JOYSTICK1_DEADZONE) {
+    snprintf(displayString, sizeof(displayString), "Forward: %d", throtReading);
   } else {
-    snprintf(displayString, sizeof(displayString), "HIGH:  %d", throtReading);
+    snprintf(displayString, sizeof(displayString), "Reverse:  %d", throtReading);
   }
 
   display.setTextAlignment(TEXT_ALIGN_LEFT);
@@ -143,12 +156,12 @@ void displayThrottle() {
 void displaySteering() {
   int steerReading = analogRead(ADC2);
   
-  if (steerReading > JOYSTICK2_NEUTRAL) {
-    snprintf(displayString, sizeof(displayString), "MID:   %d", steerReading);
-  } else if (steerReading > JOYSTICK2_LOW) {
-    snprintf(displayString, sizeof(displayString), "LEFT: %d", steerReading);
+  if (steerReading < JOYSTICK2_NEUTRAL + JOYSTICK2_DEADZONE && steerReading > JOYSTICK2_NEUTRAL - JOYSTICK2_DEADZONE) {
+    snprintf(displayString, sizeof(displayString), "Center:   %d", steerReading);
+  } else if (steerReading > JOYSTICK2_NEUTRAL + JOYSTICK2_DEADZONE) {
+    snprintf(displayString, sizeof(displayString), "Left: %d", steerReading);
   } else {
-    snprintf(displayString, sizeof(displayString), "RIGHT:  %d", steerReading);
+    snprintf(displayString, sizeof(displayString), "Right:  %d", steerReading);
   }
 
   display.setTextAlignment(TEXT_ALIGN_LEFT);
@@ -168,6 +181,18 @@ void displayKillSwitch() {
   display.setFont(ArialMT_Plain_16);
   display.drawString(0, 0, displayString);
 }
+
+// void displayAutomation() {
+//   if (digitalRead(GPIO7)) {
+//     snprintf(displayString, sizeof(displayString), "Automation ON");
+//   } else {
+//     snprintf(displayString, sizeof(displayString), "Automation OFF");
+//   }
+
+//   display.setTextAlignment(TEXT_ALIGN_LEFT);
+//   display.setFont(ArialMT_Plain_16);
+//   display.drawString(0, 0, displayString);
+// }
 
 void displayConnectionStrength() {
   if (millis() - signalTime < 1000) {
@@ -220,6 +245,7 @@ void VextOFF(void) {//Vext default OFF
 
 void writeDisplay(int select) {
   select %= 8;
+  // Removed displayAutomation, from the outputs list
   DisplayFunc outputs[] = {displayTeamName, displayThrottle, displaySteering, displayKillSwitch, displayConnectionStrength, displayPosition, displaySpeed, displaySteeringPosition};
 
   // Clear the display
@@ -230,9 +256,6 @@ void writeDisplay(int select) {
 
   display.display();  
 }
-
-
-
 
 // ===== LORAHANDLING.INO =====
 
@@ -307,9 +330,10 @@ void setup() {
   display.setFont(ArialMT_Plain_10);
   
   // Read button press
-  pinMode(GPIO1, INPUT_PULLUP);
+  pinMode(GPIO1, INPUT_PULLDOWN);
+  pinMode(GPIO2, INPUT_PULLDOWN);
   pinMode(GPIO3, INPUT_PULLDOWN);
-
+  pinMode(GPIO7, INPUT_PULLDOWN);
   
 }
 
@@ -321,9 +345,15 @@ void loop() {
   static uint32_t debounceTimer = 0;
 
   // If button pressed, switch display.
-  if (!digitalRead(GPIO1) && (millis() - debounceTimer > 500)) {
+  if (digitalRead(GPIO1) && (millis() - debounceTimer > 500)) {
     debounceTimer = millis();
     displaySelector++;
+  }
+
+  // If button pressed, switch display.
+  if (digitalRead(GPIO2) && (millis() - debounceTimer > 500)) {
+    debounceTimer = millis();
+    displaySelector--;
   }
 
   // Loops through the displays

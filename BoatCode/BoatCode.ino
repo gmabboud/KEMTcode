@@ -4,7 +4,7 @@
 #include "HT_SSD1306Wire.h"
 #include "LoRaWan_APP.h"
 
-// LoRa Configuration Constants
+// LoRa Constants
 #define RF_FREQUENCY 915000000 // Hz
 #define TX_OUTPUT_POWER 14 // dBm
 #define LORA_BANDWIDTH 0 // [0: 125 kHz, 1: 250 kHz, 2: 500 kHz, 3: Reserved]
@@ -31,6 +31,7 @@ union controllerMsg {
     bool isSteeringLeft;
     bool isSteeringRight;
     bool killswitch;
+    //bool automation;
   } status;
   uint8_t str[13];
 } inboundMsg;
@@ -48,7 +49,7 @@ union boatMsg {
 };
 
 
-// Declare radio events
+
 static RadioEvents_t RadioEvents;
 void OnTxDone( void );
 void OnTxTimeout( void );
@@ -80,73 +81,110 @@ void setup() {
 
   GPS.begin();
 
-  // Steering Left
   pinMode(GPIO7, OUTPUT);
-  // Steering Right
   pinMode(GPIO6, OUTPUT);
-  // Forward or Reverse
   pinMode(GPIO5, OUTPUT);
-  // This is the PWM pin 2 that is not used?
   pinMode(GPIO4, OUTPUT);
   digitalWrite(GPIO4, HIGH);
 
 }
 
-// Initialize throttle variables
+
 int throttle = 0;
 int throttleState = 0;
+int automationThrottle = 0;
+int automationSteering = 0;
 
 void doActions() {
 
-  if ((millis() - signalTime) > 2000) {
-    analogWrite(PWM1, 0);
-    digitalWrite(GPIO6, LOW);
-    digitalWrite(GPIO7, LOW);
-    return;
-  }
+
 
 
   if (inboundMsg.status.killswitch) {
     killswitchLock();
   }
 
+  // Commented out automation code
+  // if (inboundMsg.status.automation) {
+  //   automationThrottle = pulseIn(ADC1, HIGH);
+  //   automationSteering = pulseIn(ADC2, HIGH);
+
+
+  //   if (automationSteering > 1550) {
+  //         //Right
+  //         digitalWrite(GPIO6, HIGH);
+  //         digitalWrite(GPIO7, LOW);
+  //   }
+  //   else if (automationSteering < 1450 && automationSteering > 900) {
+  //         //Left
+  //         digitalWrite(GPIO6, LOW);
+  //         digitalWrite(GPIO7, HIGH);
+  //   }
+
+  //   else {
+      
+  //         digitalWrite(GPIO6, LOW);
+  //         digitalWrite(GPIO7, LOW);
+  //   }
+
+  //   if (automationThrottle > 1550) {
+  //         //Forward
+  //         if (throttleState != 1) {
+  //           throttleState = 1;
+  //           throttle = 1000;
+  //         } else {
+  //           throttle += 2500;
+  //           throttle = min(throttle, (3*UINT16_MAX)/4);
+  //         }
+  //         digitalWrite(GPIO5, LOW);
+  //         analogWrite(PWM1, throttle);
+  //   }
+  //   else if (automationThrottle < 1450 && automationThrottle > 900) {
+  //         //Reverse
+  //         if (throttleState != -1) {
+  //           throttleState = -1;
+  //           throttle = 1000;
+  //         } else {
+  //           throttle += 2500;
+  //           throttle = min(throttle, (3*UINT16_MAX)/4);
+  //         }
+  //         digitalWrite(GPIO5, HIGH);
+  //         analogWrite(PWM1, throttle);
+  //   }
+
+  //   else {
+      
+  //         throttleState = 0;
+  //         analogWrite(PWM1, 0);
+  //   }
+
+  // } 
+
+  // Steering left or right
   if (inboundMsg.status.isSteeringRight) {
-    //Right
-    digitalWrite(GPIO6, HIGH);
-    digitalWrite(GPIO7, LOW);
+      //Right
+      digitalWrite(GPIO6, HIGH);
+      digitalWrite(GPIO7, LOW);
 
   } else if (inboundMsg.status.isSteeringLeft) {
-    //Left
-    digitalWrite(GPIO6, LOW);
-    digitalWrite(GPIO7, HIGH);
-  } else {
-
-    // Static
-    int steerPos = analogRead(ADC3);
-    if (steerPos > 3900) {
+      //Left
       digitalWrite(GPIO6, LOW);
       digitalWrite(GPIO7, HIGH);
-    } else if (steerPos < 3700) {
-      digitalWrite(GPIO6, HIGH);
-      digitalWrite(GPIO7, LOW);      
-    } else {
+  } else {
+      // Here we can add in centering code thats in the previous code
       digitalWrite(GPIO6, LOW);
       digitalWrite(GPIO7, LOW);
-    }
-
-    // digitalWrite(GPIO6, LOW);
-    // digitalWrite(GPIO7, LOW);
-
   }
 
+  // Throttle forward and backwards
   if (inboundMsg.status.isGoingForward) {
     if (throttleState != 1) {
       throttleState = 1;
       throttle = 1000;
     } else {
       throttle += 2500;
-      //throttle = min(throttle, (3*UINT16_MAX)/4);
-      throttle = min(throttle, (19*UINT16_MAX)/20);
+      throttle = min(throttle, (3*UINT16_MAX)/4);
+      //throttle = min(throttle, (19*UINT16_MAX)/20);
     }
     digitalWrite(GPIO5, LOW);
     analogWrite(PWM1, throttle);
@@ -156,8 +194,8 @@ void doActions() {
       throttle = 1000;
     } else {
       throttle += 2500;
-      //throttle = min(throttle, (3*UINT16_MAX)/4);
-      throttle = min(throttle, (19*UINT16_MAX)/20);
+      throttle = min(throttle, (3*UINT16_MAX)/4);
+      //throttle = min(throttle, (19*UINT16_MAX)/20);
     }
     digitalWrite(GPIO5, HIGH);
     analogWrite(PWM1, throttle);
@@ -166,6 +204,8 @@ void doActions() {
     analogWrite(PWM1, 0);
   }
 }
+
+  
 
 boatMsg updateStatusVals() {
   boatMsg outboundMsg = {0};
@@ -188,7 +228,7 @@ void loop() {
 
   Serial.println(analogRead(ADC3));
 
-  Radio.Rx(500);
+  Radio.Rx(100);
   delay(100);
 
   doActions();
@@ -226,9 +266,10 @@ void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
     controllerMsg temp;
     memcpy(temp.str, payload, sizeof(controllerMsg));
     if (memcmp(temp.status.secretCode, CONTROLLERMSG_CODE, sizeof(CONTROLLERMSG_CODE)) == 0) {
-      Serial.printf("Copied %s, fwd: %d, rev: %d, left: %d, right: %d, kill: %d \n",
-        inboundMsg.status.secretCode, inboundMsg.status.isGoingForward, inboundMsg.status.isGoingBackward,
-        inboundMsg.status.isSteeringLeft, inboundMsg.status.isSteeringRight, inboundMsg.status.killswitch);
+      // Debug printing on the screen
+      //Serial.printf("Copied %s, fwd: %d, rev: %d, left: %d, right: %d, kill: %d \n",
+        //inboundMsg.status.secretCode, inboundMsg.status.isGoingForward, inboundMsg.status.isGoingBackward,
+        //inboundMsg.status.isSteeringLeft, inboundMsg.status.isSteeringRight, inboundMsg.status.killswitch);
       memcpy(inboundMsg.str, payload, sizeof(controllerMsg));
     }
 
@@ -239,5 +280,3 @@ void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
 void OnRxTimeout() {
   Serial.println("Rx timeout");
 }
-
-
