@@ -317,10 +317,8 @@ void OnTxTimeout() {
 void setup() {
   Serial.begin(115200);
 
-  Radio.Init(&RadioEvents);
-  Radio.SetChannel(RF_FREQUENCY);
-  Radio.SetTxConfig(MODEM_LORA, TX_OUTPUT_POWER, 0, LORA_BANDWIDTH, LORA_SPREADING_FACTOR, LORA_CODINGRATE, LORA_PREAMBLE_LENGTH, LORA_FIX_LENGTH_PAYLOAD_ON, true, 0, 0, LORA_IQ_INVERSION_ON, 3000);
-
+  LoRaSetup();
+  
   //Serial.println();
   //VextON();
   //delay(100);
@@ -359,13 +357,15 @@ void loop() {
   // Loops through the displays
   writeDisplay(displaySelector);
   
+  // Commented out the receiving from the boat
   // Listen for boat signals
-  Radio.Rx(100);
-  delay(100);
-  Radio.IrqProcess();
+  //Radio.Rx(500);
+  //delay(100);
+  //Radio.IrqProcess();
   
   // Package up myRC data and send it to the other module
-  Radio.Send(updateStatusVals().str, sizeof(controllerMsg)); 
+  Radio.Send(updateStatusVals().str, sizeof(controllerMsg));
+   
   delay(100);
   Radio.IrqProcess();
 

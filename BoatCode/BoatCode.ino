@@ -61,7 +61,7 @@ int16_t lastRSSI = 0;
 void setup() {
   Serial.begin(115200);
 
-  // LoRa Setup
+  // LoRa Setup in controller this is a separate function
   RadioEvents.RxDone = OnRxDone;
   RadioEvents.RxTimeout = OnRxTimeout;
   RadioEvents.TxDone = OnTxDone;
@@ -96,10 +96,6 @@ int automationThrottle = 0;
 int automationSteering = 0;
 
 void doActions() {
-
-
-
-
   if (inboundMsg.status.killswitch) {
     killswitchLock();
   }
@@ -183,8 +179,8 @@ void doActions() {
       throttle = 1000;
     } else {
       throttle += 2500;
-      throttle = min(throttle, (3*UINT16_MAX)/4);
-      //throttle = min(throttle, (19*UINT16_MAX)/20);
+      //throttle = min(throttle, (3*UINT16_MAX)/4);
+      throttle = min(throttle, (19*UINT16_MAX)/20);
     }
     digitalWrite(GPIO5, LOW);
     analogWrite(PWM1, throttle);
@@ -194,8 +190,8 @@ void doActions() {
       throttle = 1000;
     } else {
       throttle += 2500;
-      throttle = min(throttle, (3*UINT16_MAX)/4);
-      //throttle = min(throttle, (19*UINT16_MAX)/20);
+      //throttle = min(throttle, (3*UINT16_MAX)/4);
+      throttle = min(throttle, (19*UINT16_MAX)/20);
     }
     digitalWrite(GPIO5, HIGH);
     analogWrite(PWM1, throttle);
@@ -206,33 +202,34 @@ void doActions() {
 }
 
   
+// Commented out sending info to the controller
+// boatMsg updateStatusVals() {
+//   boatMsg outboundMsg = {0};
+//   memcpy(outboundMsg.status.secretCode, BOATMSG_CODE, sizeof(BOATMSG_CODE));
 
-boatMsg updateStatusVals() {
-  boatMsg outboundMsg = {0};
-  memcpy(outboundMsg.status.secretCode, BOATMSG_CODE, sizeof(BOATMSG_CODE));
+//   outboundMsg.status.lastRSSI = lastRSSI;
+//   outboundMsg.status.steeringPosition = analogRead(ADC3);
 
-  outboundMsg.status.lastRSSI = lastRSSI;
-  outboundMsg.status.steeringPosition = analogRead(ADC3);
+//   while (GPS.available() > 0) {
+//     GPS.encode(GPS.read());
+//   }
+//   outboundMsg.status.latitude = (float)GPS.location.lat();
+//   outboundMsg.status.longitude = (float)GPS.location.lng();
+//   outboundMsg.status.speed = (float)GPS.speed.mph();
 
-  while (GPS.available() > 0) {
-    GPS.encode(GPS.read());
-  }
-  outboundMsg.status.latitude = (float)GPS.location.lat();
-  outboundMsg.status.longitude = (float)GPS.location.lng();
-  outboundMsg.status.speed = (float)GPS.speed.mph();
-
-  return outboundMsg;
-}
+//   return outboundMsg;
+// }
 
 void loop() {
 
   Serial.println(analogRead(ADC3));
 
-  Radio.Rx(100);
+  Radio.Rx(500);
   delay(100);
+  Radio.IrqProcess();
 
   doActions();
-  Radio.Send(updateStatusVals().str, sizeof(boatMsg));
+  //Radio.Send(updateStatusVals().str, sizeof(boatMsg));
 
   delay(100);
   Radio.IrqProcess();
@@ -245,7 +242,7 @@ void killswitchLock() {
   digitalWrite(GPIO7, LOW);
   while(true) {
     Serial.println(analogRead(ADC3));
-    Radio.Send(updateStatusVals().str, sizeof(boatMsg));
+    //Radio.Send(updateStatusVals().str, sizeof(boatMsg));
     delay(100);
   }
 }
