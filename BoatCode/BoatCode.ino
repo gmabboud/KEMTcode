@@ -89,7 +89,6 @@ void setup() {
 
 }
 
-
 int throttle = 0;
 int throttleState = 0;
 int automationThrottle = 0;

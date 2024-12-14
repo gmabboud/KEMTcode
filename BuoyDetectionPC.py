@@ -90,8 +90,8 @@ while 1:
     MAX_AREA = 1000000 # Maximum area of the buoy in pixels
 
     # Draw contours on result image
-    largest_contour = max(contours, key=cv2.contourArea)
     for cnt in contours:
+        largest_contour = max(contours, key=cv2.contourArea) # We can probably call this in a diff way to improve performance
         area = cv2.contourArea(cnt)
         if MIN_AREA < area < MAX_AREA:
             cv2.drawContours(imgResult, [cnt], -1, (255, 0, 0), 3)  # Draw contour in blue
@@ -111,7 +111,7 @@ while 1:
 
                 # Check the size of the bounding box
                 bounding_box_area = w * h
-                size_threshold = 20000  # Adjust as needed based on the objects you're detecting
+                size_threshold = 100000  # Adjust as needed based on the objects you're detecting
                 if bounding_box_area > size_threshold:
                     print(f"Object is close\n    Send LOW THROTTLE")
                     # Check if the object center is on the left or right side
@@ -123,8 +123,6 @@ while 1:
                         print("Object is on RIGHT side\n    Send LEFT TURN")
                 else:
                     print("Object is far\n    Send HIGH THROTTLE")
-
-
 
     # Save image to disk
     #cv2.imwrite('masked.png', mask)
