@@ -56,15 +56,15 @@ def collision_detection():
 
             # Determine movement logic
             if w * h > SIZE_THRESHOLD:
-                throttle = 1200  # Reduce throttle when object is close
+                throttle = 1200
             else:
-                throttle = 1700  # Increase throttle when object is far
+                throttle = 1700
 
             # Determine steering direction
             if center_x < image_center:
-                steering = 1700  # Object on left -> Turn right
+                steering = 1700
             else:
-                steering = 1300  # Object on right -> Turn left
+                steering = 1300
 
             return throttle, steering
 
@@ -100,7 +100,7 @@ request_servo_output()
 
 # Set up UART on Raspberry Pi UPDATE THIS SERIAL VALUE
 #Disable for debugging
-#ser = serial.Serial('/dev/serial0', baudrate=115200, timeout=1)
+ser = serial.Serial('/dev/serial0', baudrate=115200, timeout=1)
 
 # Initialize collision_avoidance
 collision_avoidance = False
@@ -134,7 +134,7 @@ while True:
     # Send UART message
     message = f"{source} T:{throttle} S:{steering}\n"
     #Disable for debugging
-    #ser.write(message.encode())
+    ser.write(message.encode())
         
     print(f"Sent: {message.strip()}")
 
