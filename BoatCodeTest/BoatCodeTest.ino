@@ -122,11 +122,17 @@ void loop() {
             receivedData += c; // Append character to buffer
         }
     }
+    // NOTE: I'm not sure this code is even correct or what we want to do but it is what the previous code did to work
+    Radio.Rx(500);
+    delay(100);
+    Radio.IrqProcess();
 
     // Perform actions based on automation or remote control
     doActions();
 
     delay(100);  // Reduce CPU usage?
+    // IDK if this is necessary either
+    Radio.IrqProcess();
 }
 
 void doActions() {
