@@ -78,7 +78,7 @@ int throttle = 0;
 int throttleState = 0;
 
 void setup() {
-    Serial.begin(115200); // Initialize UART for communication with Raspberry Pi
+    Serial1.begin(115200); // Initialize UART for communication with Raspberry Pi
 
     // LoRa Setup in controller this is a separate function so this might not be necessary?
     RadioEvents.RxDone = OnRxDone;
@@ -110,11 +110,11 @@ void setup() {
 
 void loop() {
     // Read UART messages from Raspberry Pi
-    // If this doesnt work then switch to using Serial.read(buffer, size)
-    // I am thinking that this serial.available is not going to work 
+    // If this doesnt work then switch to using Serial1.read(buffer, size)
+    // I am thinking that this Serial1.available is not going to work 
     // Potential solution is use the buffer and make sure that the message is always an exact length
-    while (Serial.available()) {
-        char c = Serial.read();
+    while (Serial1.available()) {
+        char c = Serial1.read();
         if (c == '\n') {  
             processUARTMessage(receivedData);  // Process complete message
             receivedData = ""; // Clear buffer
@@ -136,7 +136,8 @@ void loop() {
 }
 
 void doActions() {
-    // Kill switch do nothing?
+    // Kill switch that is usually here does nothing?
+    
     if (automationMode) {
         // Use automation values from Raspberry Pi
         controlBoat(automationThrottle, automationSteering);
@@ -218,29 +219,29 @@ void processUARTMessage(String message) {
             automationThrottle = message.substring(tIndex + 2, sIndex).toInt();
             automationSteering = message.substring(sIndex + 2).toInt();
         }
-        Serial.println("Received automation values - Throttle: " + String(automationThrottle) + ", Steering: " + String(automationSteering));
+        Serial1.println("Received automation values - Throttle: " + String(automationThrottle) + ", Steering: " + String(automationSteering));
     }
 }
 
 // TX and RX functions
 // void OnTxDone() {
-//     Serial.println("Sent msg");
+//     Serial1.println("Sent msg");
 // }
   
 // void OnTxTimeout() {
-//     Serial.println("Tx timeout");
+//     Serial1.println("Tx timeout");
 // }
   
 void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
     signalTime = millis();
     lastRSSI = rssi;
-    Serial.println("Received");
+    Serial1.println("Received");
     if (size == sizeof(controllerMsg)) {
         controllerMsg temp;
         memcpy(temp.str, payload, sizeof(controllerMsg));
         if (memcmp(temp.status.secretCode, CONTROLLERMSG_CODE, sizeof(CONTROLLERMSG_CODE)) == 0) {
         // Debug printing on the screen
-        //Serial.printf("Copied %s, fwd: %d, rev: %d, left: %d, right: %d, kill: %d \n",
+        //Serial1.printf("Copied %s, fwd: %d, rev: %d, left: %d, right: %d, kill: %d \n",
             //inboundMsg.status.secretCode, inboundMsg.status.isGoingForward, inboundMsg.status.isGoingBackward,
             //inboundMsg.status.isSteeringLeft, inboundMsg.status.isSteeringRight, inboundMsg.status.killswitch);
         memcpy(inboundMsg.str, payload, sizeof(controllerMsg));
@@ -251,5 +252,5 @@ void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
 }
   
 void OnRxTimeout() {
-    Serial.println("Rx timeout");
+    Serial1.println("Rx timeout");
 }
