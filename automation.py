@@ -12,7 +12,7 @@ import numpy as np
 import subprocess
 import time
 import serial
-from pymavlink import mavutil
+#from pymavlink import mavutil
 
 ### Variables
 # Predefined HSV values, to be determined using the PC program beforehand
@@ -96,7 +96,7 @@ def collision_detection():
 cap = cv2.VideoCapture(0)
 
 # Request Message
-request_servo_output()
+#request_servo_output()
 
 # Set up UART on Raspberry Pi UPDATE THIS SERIAL VALUE
 #Disable for debugging
