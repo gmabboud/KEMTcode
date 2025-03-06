@@ -71,26 +71,26 @@ def collision_detection():
     return None, None  # No valid detection
 
 ### MAVLink interpretation function
-def request_servo_output():
-    print("Requesting SERVO_OUTPUT_RAW message...")
-    # Send a message interval request to the Pixhawk
-    connection.mav.command_long_send(
-        connection.target_system,    # Target system ID
-        connection.target_component, # Target component ID
-        mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL, # Command ID
-        0,                           # Confirmation
-        mavutil.mavlink.MAVLINK_MSG_ID_SERVO_OUTPUT_RAW, # Message ID
-        10000,                     # Interval in microseconds (1 second)
-        0, 0, 0, 0, 0                # Unused parameters
-    )
+# def request_servo_output():
+#     print("Requesting SERVO_OUTPUT_RAW message...")
+#     # Send a message interval request to the Pixhawk
+#     connection.mav.command_long_send(
+#         connection.target_system,    # Target system ID
+#         connection.target_component, # Target component ID
+#         mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL, # Command ID
+#         0,                           # Confirmation
+#         mavutil.mavlink.MAVLINK_MSG_ID_SERVO_OUTPUT_RAW, # Message ID
+#         10000,                     # Interval in microseconds (1 second)
+#         0, 0, 0, 0, 0                # Unused parameters
+#     )
 
 ### Initialization
 
 # Connect to pixhawk
-connection = mavutil.mavlink_connection('/dev/serial/by-id/usb-ArduPilot_Pixhawk1_2B003D000F51383130333132-if00', baud=115200)
+#connection = mavutil.mavlink_connection('/dev/serial/by-id/usb-ArduPilot_Pixhawk1_2B003D000F51383130333132-if00', baud=115200)
 # Wait for a heartbeat from the Pixhawk
-connection.wait_heartbeat()
-print("Heartbeat received!")
+#connection.wait_heartbeat()
+#print("Heartbeat received!")
 
 # Initialize Camera
 cap = cv2.VideoCapture(0)
@@ -108,11 +108,11 @@ collision_avoidance = False
 ### Main loop
 while True:
     # Pull message from MAVLink
-    mav_message = connection.recv_match(type='SERVO_OUTPUT_RAW', blocking=True) #Should blocking equal true?
+    #mav_message = connection.recv_match(type='SERVO_OUTPUT_RAW', blocking=True) #Should blocking equal true?
     servo_throttle = f"servo{THROTTLE_ID}_raw"
     servo_steering = f"servo{STEERING_ID}_raw"
-    mav_throttle = getattr(mav_message, servo_throttle)
-    mav_steering = getattr(mav_message, servo_steering)
+    #mav_throttle = getattr(mav_message, servo_throttle)
+    #mav_steering = getattr(mav_message, servo_steering)
 
     cd_throttle, cd_steering = collision_detection()
     print(f"Throttle: {cd_throttle}, Steering: {cd_steering}")
@@ -127,15 +127,15 @@ while True:
         steering = cd_steering
         source = "CD"  # Collision Detection
     else:
-        throttle = mav_throttle if mav_throttle is not None else 1500  # Default neutral
-        steering = mav_steering if mav_steering is not None else 1500  # Default neutral
+        #throttle = mav_throttle if mav_throttle is not None else 1500  # Default neutral
+        #steering = mav_steering if mav_steering is not None else 1500  # Default neutral
         source = "MV"  # MAVLink
         
     # Send UART message
     #message = f"{source} T:{throttle} S:{steering}\n"
     #Debug message
     message = f"MV T:1 S:0\n"
-    
+
     #Disable for debugging
     ser.write(message.encode())
         
