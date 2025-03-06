@@ -1,7 +1,17 @@
-#include <Wire.h>           
-#include "GPS_Air530Z.h"
+// #include <Wire.h>           
+// #include "GPS_Air530Z.h"
+// #include "HT_SSD1306Wire.h"
+// #include "LoRaWan_APP.h"
+
+// Added these because they are in the remote control code for display stuff
+#include <Wire.h>         
+#include <string>
+#include <sstream>
 #include "HT_SSD1306Wire.h"
 #include "LoRaWan_APP.h"
+#include "Arduino.h"
+#include "GPS_Air530Z.h"
+
 
 // LoRa Constants
 #define RF_FREQUENCY 915000000 // Hz
@@ -76,6 +86,13 @@ int automationSteering = 0;
 // Legacy throttle and throttle state variables
 int throttle = 0;
 int throttleState = 0;
+typedef void (*DisplayFunc)(void);
+DisplayFunc outputs;
+
+// Display Message
+String serialMessage = "";
+static SSD1306Wire display(0x3c, 500000, SDA, SCL, GEOMETRY_128_64, GPIO10); // addr, freq, SDA, SCL, resolution, rst
+
 
 void setup() {
     Serial1.begin(115200); // Initialize UART for communication with Raspberry Pi
@@ -106,6 +123,13 @@ void setup() {
     pinMode(MOTOR_CONTROLLER_ENABLE, OUTPUT);
     // Enabling the motor controller?
     digitalWrite(GPIO4, HIGH);
+
+    // Serial Debug Display
+    outputs = displaySerial;
+    // Initialize the display
+    display.init();
+    display.setFont(ArialMT_Plain_10);
+
 }
 
 void loop() {
@@ -116,12 +140,22 @@ void loop() {
     while (Serial1.available()) {
         char c = Serial1.read();
         if (c == '\n') {  
+            serialMessage = receivedData;
             processUARTMessage(receivedData);  // Process complete message
             receivedData = ""; // Clear buffer
         } else {
             receivedData += c; // Append character to buffer
         }
     }
+
+    // Serial Debug Display
+    // Clear the display
+    display.clear();
+    // Draw the current display method
+    outputs();
+    display.display();  
+
+
     // NOTE: I'm not sure this code is even correct or what we want to do but it is what the previous code did to work
     Radio.Rx(500);
     delay(100);
@@ -138,6 +172,9 @@ void loop() {
 void doActions() {
     // Kill switch that is usually here does nothing?
     
+    //DEBUG:
+    automationMode = True;
+
     if (automationMode) {
         // Use automation values from Raspberry Pi
         controlBoat(automationThrottle, automationSteering);
@@ -189,8 +226,12 @@ void doActions() {
 void controlBoat(int throttleValue, int steeringValue) {
     // TODO: Add new logic to put the throttle at a certain percentage out of 100%.
     if (throttleValue == 1) {
-        digitalWrite(THROTTLE_PIN, LOW);
+        digitalWrite(GPIO5, LOW);
         analogWrite(PWM1, 1000);
+        //DEBUG:
+        throttle = min(throttle, (19*UINT16_MAX)/20);
+        digitalWrite(GPIO5, LOW);
+        analogWrite(PWM1, throttle);
     } else {
         analogWrite(PWM1, 0);
     }
@@ -211,7 +252,7 @@ void controlBoat(int throttleValue, int steeringValue) {
 // Function to process incoming UART messages and update automation throttle and steering values
 void processUARTMessage(String message) {
     // Look for correctly prefixed message
-    if (message.startsWith("MAV") || message.startsWith("CD")) { 
+    if (message.startsWith("MV") || message.startsWith("CD")) { 
 
         int tIndex = message.indexOf("T:");
         int sIndex = message.indexOf("S:");
@@ -254,3 +295,11 @@ void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
 void OnRxTimeout() {
     Serial1.println("Rx timeout");
 }
+
+// Serial Debug Display function
+void displaySerial() {
+    display.setTextAlignment(TEXT_ALIGN_LEFT);
+    display.setFont(ArialMT_Plain_16);
+    display.drawString(0, 0, "Serial Message");
+    display.drawString(0, 20, serialMessage);
+  }

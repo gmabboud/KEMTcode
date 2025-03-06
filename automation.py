@@ -129,10 +129,13 @@ while True:
     else:
         throttle = mav_throttle if mav_throttle is not None else 1500  # Default neutral
         steering = mav_steering if mav_steering is not None else 1500  # Default neutral
-        source = "MAV"  # MAVLink
+        source = "MV"  # MAVLink
         
     # Send UART message
-    message = f"{source} T:{throttle} S:{steering}\n"
+    #message = f"{source} T:{throttle} S:{steering}\n"
+    #Debug message
+    message = f"MV T:1 S:0\n"
+    
     #Disable for debugging
     ser.write(message.encode())
         
