@@ -133,13 +133,20 @@ while True:
         
     # Send UART message
     #message = f"{source} T:{throttle} S:{steering}\n"
+    
     #Debug message
-    message = f"MV T:1 S:0\n"
+    # Set debug throttle and steering values
+    throttle = 1 
+    steering = 1
+
+    # Create a bytes object with two uint8_t values
+    message = bytes([throttle, steering])
 
     #Disable for debugging
-    ser.write(message.encode())
+    ser.write(message)
         
-    print(f"Sent: {message.strip()}")
+    # stupid ass debug message ong
+    print(f"Sent: Throttle={throttle}, Steering={steering}")
 
-    time.sleep(0.01)  # Small delay to reduce CPU usage?
+    time.sleep(0.1)  # Small delay to reduce CPU usage?
 # cap.released necessary here?

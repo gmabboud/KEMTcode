@@ -24,7 +24,7 @@
 #define LORA_FIX_LENGTH_PAYLOAD_ON false
 #define LORA_IQ_INVERSION_ON false
 #define RX_TIMEOUT_VALUE 1000
-#define BUFFER_SIZE 30 // Define the payload size here
+#define BUFFER_SIZE 2 // Define the payload size here
 #define TIMEOUT 10 // May need to adjust this
 
 Air530ZClass GPS;
@@ -70,7 +70,9 @@ int16_t lastRSSI = 0;
 
 // UART Communication Variables
 //String receivedData = "";  // Buffer to store UART messages
-uint8_t serialBuffer[BUFFER_SIZE];  // Buffer to store incoming UART message
+//uint8_t serialBuffer[BUFFER_SIZE] = {1, 1};  // Buffer to store incoming UART message
+uint8_t serialBuffer[BUFFER_SIZE];
+int bufferSize;
 bool automationMode = false; // Flag for automation mode
 
 // Pin Definitions
@@ -97,7 +99,7 @@ static SSD1306Wire display(0x3c, 500000, SDA, SCL, GEOMETRY_128_64, GPIO10); // 
 
 
 void setup() {
-    Serial1.begin(115200); // Initialize UART for communication with Raspberry Pi
+    Serial1.begin(9600); // Initialize UART for communication with Raspberry Pi
 
     // LoRa Setup in controller this is a separate function so this might not be necessary?
     RadioEvents.RxDone = OnRxDone;
@@ -136,33 +138,15 @@ void setup() {
 
 void loop() {
     // Read UART messages from Raspberry Pi
-    // If this doesnt work then switch to using Serial1.read(buffer, size)
-    // I am thinking that this Serial1.available is not going to work 
-    // Potential solution is use the buffer and make sure that the message is always an exact length
-    // while (Serial1.available()) {
-    //     char c = Serial1.read();
-    //     if (c == '\n') {  
-    //         serialMessage = receivedData;
-    //         processUARTMessage(receivedData);  // Process complete message
-    //         receivedData = ""; // Clear buffer
-    //     } else {
-    //         receivedData += c; // Append character to buffer
-    //     }
-    // }
-    //Testing:
-    // Read full message from UART1 (waits for newline character '\n')
-    // Read full message from UART1 (waits for newline character '\n')
-    int size = Serial1.read(serialBuffer, TIMEOUT);
+    bufferSize = Serial1.read(serialBuffer, TIMEOUT);
     
-    if (size > 0) {  // If a valid message is received
-        serialBuffer[size] = '\0';  // Null-terminate the string
-
-        Serial.print("Received UART message: ");
-        Serial.write(serialBuffer, size);  // Print raw received data
-        Serial.println();  // Newline for readability
-
+    // DEBUG: Simulate receiving data (for testing)
+    // int bufferSize = 2;  // Simulating a successful read of 2 bytes
+    // processUARTMessage(serialBuffer, bufferSize);
+    
+    if (bufferSize) {  // If a valid message is received
         // Process the message
-        processUARTMessage(serialBuffer, size);
+        processUARTMessage(serialBuffer, bufferSize);
     }
 
     // Serial Debug Display
@@ -242,22 +226,39 @@ void doActions() {
 //CHANGE THIS WHEN WE HAVE CONFIRMED THE MESSAGES GET SENT CORRECTLY WE DONT WANT DIGITAL LOGIC ON THE CONTROLS
 void controlBoat(int throttleValue, int steeringValue) {
     // TODO: Add new logic to put the throttle at a certain percentage out of 100%.
-    if (throttleValue == 1) {
-        digitalWrite(GPIO5, LOW);
-        analogWrite(PWM1, 1000);
-        //DEBUG:
-        throttle = min(throttle, (19*UINT16_MAX)/20);
-        digitalWrite(GPIO5, LOW);
-        analogWrite(PWM1, throttle);
+    // Throttle forward and backwards
+  if (throttleValue == 1) {
+    if (throttleState != 1) {
+      throttleState = 1;
+      throttle = 1000;
     } else {
-        analogWrite(PWM1, 0);
+      throttle += 2500;
+      //throttle = min(throttle, (3*UINT16_MAX)/4);
+      throttle = min(throttle, (10*UINT16_MAX)/20);
     }
+    digitalWrite(GPIO5, LOW);
+    analogWrite(PWM1, throttle);
+  } else if (throttleValue == 10){
+    if (throttleState != -1) {
+      throttleState = -1;
+      throttle = 1000;
+    } else {
+      throttle += 2500;
+      //throttle = min(throttle, (3*UINT16_MAX)/4);
+      throttle = min(throttle, (10*UINT16_MAX)/20);
+    }
+    digitalWrite(GPIO5, HIGH);
+    analogWrite(PWM1, throttle);
+  } else {
+    throttleState = 0;
+    analogWrite(PWM1, 0);
+  }
 
     // TODO: Add new logic to steer to a given position
     if (steeringValue == 1) {
         digitalWrite(STEERING_LEFT_PIN, HIGH);
         digitalWrite(STEERING_RIGHT_PIN, LOW);
-    } else if (steeringValue == -1) {
+    } else if (steeringValue == 10) {
         digitalWrite(STEERING_LEFT_PIN, LOW);
         digitalWrite(STEERING_RIGHT_PIN, HIGH);
     } else {
@@ -282,25 +283,20 @@ void controlBoat(int throttleValue, int steeringValue) {
 // }
 // Function to extract throttle and steering from received message
 void processUARTMessage(uint8_t *message, int length) {
-    int throttle = 0, steering = 0;
+    if (length == 2) {  // Expect exactly 2 bytes (throttle and steering)
+        // uint8_t throttle = message[0];  // First byte = throttle (0-100)
+        // uint8_t steering = message[1];  // Second byte = steering (0-100)
+        automationThrottle = static_cast<int>(message[0]);
+        automationSteering = static_cast<int>(message[1]);
 
-    // Ensure message starts with "MV"
-    if (length >= 5 && strncmp((char*)message, "MV", 2) == 0) {
-        char *tPtr = strstr((char*)message, "T:");
-        char *sPtr = strstr((char*)message, "S:");
+        // Serial.print("Received Throttle: ");
+        // Serial.println(throttle);
+        // Serial.print("Received Steering: ");
+        // Serial.println(steering);
 
-        if (tPtr && sPtr) {
-            throttle = atoi(tPtr + 2);  // Extract throttle value
-            steering = atoi(sPtr + 2);  // Extract steering value
-
-            Serial.print("Parsed Throttle: ");
-            Serial.println(throttle);
-            Serial.print("Parsed Steering: ");
-            Serial.println(steering);
-
-            // Apply the parsed values to control the boat
-            controlBoat(throttle, steering);
-        }
+        
+    } else {
+        //Serial.println("Invalid UART message length!");
     }
 }
 
@@ -338,14 +334,13 @@ void OnRxTimeout() {
 
 // Serial Debug Display function
 void displaySerial() {
-    char messageBuffer[BUFFER_SIZE];  // Create a temporary char buffer
+    char messageBuffer[20];  // Small buffer for formatted output
 
-    // Convert uint8_t buffer to a null-terminated string
-    strncpy(messageBuffer, (char*)serialBuffer, BUFFER_SIZE - 1);
-    messageBuffer[BUFFER_SIZE - 1] = '\0';  // Ensure it's null-terminated
+    // Format: "T:XX S:XX" (Throttle and Steering values)
+    snprintf(messageBuffer, sizeof(messageBuffer), "T:%d S:%d", serialBuffer[0], serialBuffer[1]);
 
     display.setTextAlignment(TEXT_ALIGN_LEFT);
     display.setFont(ArialMT_Plain_16);
     display.drawString(0, 0, "Serial Message");
-    display.drawString(0, 20, messageBuffer);  // Display the converted string
+    display.drawString(0, 20, messageBuffer);  // Display formatted throttle & steering
 }
