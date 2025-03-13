@@ -25,7 +25,7 @@
 #define LORA_IQ_INVERSION_ON false
 #define RX_TIMEOUT_VALUE 1000
 #define BUFFER_SIZE 2 // Define the payload size here
-#define TIMEOUT 10 // May need to adjust this
+#define TIMEOUT 5 // May need to adjust this
 
 Air530ZClass GPS;
 
@@ -101,25 +101,25 @@ static SSD1306Wire display(0x3c, 500000, SDA, SCL, GEOMETRY_128_64, GPIO10); // 
 void setup() {
     Serial1.begin(9600); // Initialize UART for communication with Raspberry Pi
 
-    // LoRa Setup in controller this is a separate function so this might not be necessary?
-    RadioEvents.RxDone = OnRxDone;
-    RadioEvents.RxTimeout = OnRxTimeout;
-    //RadioEvents.TxDone = OnTxDone;
-    //RadioEvents.TxTimeout = OnTxTimeout;
+    // // LoRa Setup in controller this is a separate function so this might not be necessary?
+    // RadioEvents.RxDone = OnRxDone;
+    // RadioEvents.RxTimeout = OnRxTimeout;
+    // //RadioEvents.TxDone = OnTxDone;
+    // //RadioEvents.TxTimeout = OnTxTimeout;
 
-    Radio.Init( &RadioEvents );
-    Radio.SetChannel( RF_FREQUENCY );
-    Radio.SetTxConfig( MODEM_LORA, TX_OUTPUT_POWER, 0, LORA_BANDWIDTH,
-                        LORA_SPREADING_FACTOR, LORA_CODINGRATE,
-                        LORA_PREAMBLE_LENGTH, LORA_FIX_LENGTH_PAYLOAD_ON,
-                        true, 0, 0, LORA_IQ_INVERSION_ON, 3000 );
+    // Radio.Init( &RadioEvents );
+    // Radio.SetChannel( RF_FREQUENCY );
+    // Radio.SetTxConfig( MODEM_LORA, TX_OUTPUT_POWER, 0, LORA_BANDWIDTH,
+    //                     LORA_SPREADING_FACTOR, LORA_CODINGRATE,
+    //                     LORA_PREAMBLE_LENGTH, LORA_FIX_LENGTH_PAYLOAD_ON,
+    //                     true, 0, 0, LORA_IQ_INVERSION_ON, 3000 );
 
-    Radio.SetRxConfig( MODEM_LORA, LORA_BANDWIDTH, LORA_SPREADING_FACTOR,
-                        LORA_CODINGRATE, 0, LORA_PREAMBLE_LENGTH,
-                        LORA_SYMBOL_TIMEOUT, LORA_FIX_LENGTH_PAYLOAD_ON,
-                        0, true, 0, 0, LORA_IQ_INVERSION_ON, true );
+    // Radio.SetRxConfig( MODEM_LORA, LORA_BANDWIDTH, LORA_SPREADING_FACTOR,
+    //                     LORA_CODINGRATE, 0, LORA_PREAMBLE_LENGTH,
+    //                     LORA_SYMBOL_TIMEOUT, LORA_FIX_LENGTH_PAYLOAD_ON,
+    //                     0, true, 0, 0, LORA_IQ_INVERSION_ON, true );
                     
-    GPS.begin();
+    // GPS.begin();
 
     pinMode(THROTTLE_PIN, OUTPUT);
     pinMode(STEERING_LEFT_PIN, OUTPUT);
@@ -141,13 +141,13 @@ void loop() {
     bufferSize = Serial1.read(serialBuffer, TIMEOUT);
     
     // DEBUG: Simulate receiving data (for testing)
-    // int bufferSize = 2;  // Simulating a successful read of 2 bytes
-    // processUARTMessage(serialBuffer, bufferSize);
+    int bufferSize = 2;  // Simulating a successful read of 2 bytes
+    processUARTMessage(serialBuffer, bufferSize);
     
-    if (bufferSize) {  // If a valid message is received
-        // Process the message
-        processUARTMessage(serialBuffer, bufferSize);
-    }
+    // if (bufferSize) {  // If a valid message is received
+    //     // Process the message
+    //     processUARTMessage(serialBuffer, bufferSize);
+    // }
 
     // Serial Debug Display
     // Clear the display
@@ -157,24 +157,24 @@ void loop() {
     display.display();  
 
 
-    // NOTE: I'm not sure this code is even correct or what we want to do but it is what the previous code did to work
-    Radio.Rx(500);
-    delay(100);
-    Radio.IrqProcess();
+    // // NOTE: I'm not sure this code is even correct or what we want to do but it is what the previous code did to work
+    // Radio.Rx(500);
+    // delay(100);
+    // Radio.IrqProcess();
 
-    // Perform actions based on automation or remote control
+    // // Perform actions based on automation or remote control
     doActions();
 
-    delay(100);  // Reduce CPU usage?
-    // IDK if this is necessary either
-    Radio.IrqProcess();
+    // delay(100);  // Reduce CPU usage?
+    // // IDK if this is necessary either
+    // Radio.IrqProcess();
 }
 
 void doActions() {
     // Kill switch that is usually here does nothing?
     
     //DEBUG:
-    automationMode = 1;
+    automationMode = true;
 
     if (automationMode) {
         // Use automation values from Raspberry Pi
@@ -255,10 +255,10 @@ void controlBoat(int throttleValue, int steeringValue) {
   }
 
     // TODO: Add new logic to steer to a given position
-    if (steeringValue == 1) {
+    if (steeringValue == 10) {
         digitalWrite(STEERING_LEFT_PIN, HIGH);
         digitalWrite(STEERING_RIGHT_PIN, LOW);
-    } else if (steeringValue == 10) {
+    } else if (steeringValue == 1) {
         digitalWrite(STEERING_LEFT_PIN, LOW);
         digitalWrite(STEERING_RIGHT_PIN, HIGH);
     } else {
@@ -280,7 +280,7 @@ void controlBoat(int throttleValue, int steeringValue) {
 //         }
 //         Serial1.println("Received automation values - Throttle: " + String(automationThrottle) + ", Steering: " + String(automationSteering));
 //     }
-// }
+//  }
 // Function to extract throttle and steering from received message
 void processUARTMessage(uint8_t *message, int length) {
     if (length == 2) {  // Expect exactly 2 bytes (throttle and steering)
@@ -297,6 +297,8 @@ void processUARTMessage(uint8_t *message, int length) {
         
     } else {
         //Serial.println("Invalid UART message length!");
+        //automationThrottle = static_cast<int>(message[0]);
+        //automationSteering = static_cast<int>(message[1]);
     }
 }
 
@@ -309,28 +311,28 @@ void processUARTMessage(uint8_t *message, int length) {
 //     Serial1.println("Tx timeout");
 // }
   
-void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
-    signalTime = millis();
-    lastRSSI = rssi;
-    Serial1.println("Received");
-    if (size == sizeof(controllerMsg)) {
-        controllerMsg temp;
-        memcpy(temp.str, payload, sizeof(controllerMsg));
-        if (memcmp(temp.status.secretCode, CONTROLLERMSG_CODE, sizeof(CONTROLLERMSG_CODE)) == 0) {
-        // Debug printing on the screen
-        //Serial1.printf("Copied %s, fwd: %d, rev: %d, left: %d, right: %d, kill: %d \n",
-            //inboundMsg.status.secretCode, inboundMsg.status.isGoingForward, inboundMsg.status.isGoingBackward,
-            //inboundMsg.status.isSteeringLeft, inboundMsg.status.isSteeringRight, inboundMsg.status.killswitch);
-        memcpy(inboundMsg.str, payload, sizeof(controllerMsg));
-        }
+// void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
+//     signalTime = millis();
+//     lastRSSI = rssi;
+//     Serial1.println("Received");
+//     if (size == sizeof(controllerMsg)) {
+//         controllerMsg temp;
+//         memcpy(temp.str, payload, sizeof(controllerMsg));
+//         if (memcmp(temp.status.secretCode, CONTROLLERMSG_CODE, sizeof(CONTROLLERMSG_CODE)) == 0) {
+//         // Debug printing on the screen
+//         //Serial1.printf("Copied %s, fwd: %d, rev: %d, left: %d, right: %d, kill: %d \n",
+//             //inboundMsg.status.secretCode, inboundMsg.status.isGoingForward, inboundMsg.status.isGoingBackward,
+//             //inboundMsg.status.isSteeringLeft, inboundMsg.status.isSteeringRight, inboundMsg.status.killswitch);
+//         memcpy(inboundMsg.str, payload, sizeof(controllerMsg));
+//         }
 
-    }
+//     }
 
-}
+// }
   
-void OnRxTimeout() {
-    Serial1.println("Rx timeout");
-}
+// void OnRxTimeout() {
+//     Serial1.println("Rx timeout");
+// }
 
 // Serial Debug Display function
 void displaySerial() {

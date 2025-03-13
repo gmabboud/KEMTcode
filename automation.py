@@ -100,7 +100,7 @@ cap = cv2.VideoCapture(0)
 
 # Set up UART on Raspberry Pi UPDATE THIS SERIAL VALUE
 #Disable for debugging
-ser = serial.Serial('/dev/serial0', baudrate=115200, timeout=1)
+ser = serial.Serial('/dev/serial0', baudrate=9600, timeout=5)
 
 # Initialize collision_avoidance
 collision_avoidance = False
@@ -125,11 +125,9 @@ while True:
     if collision_avoidance:
         throttle = cd_throttle
         steering = cd_steering
-        source = "CD"  # Collision Detection
-    else:
+    #else:
         #throttle = mav_throttle if mav_throttle is not None else 1500  # Default neutral
         #steering = mav_steering if mav_steering is not None else 1500  # Default neutral
-        source = "MV"  # MAVLink
         
     # Send UART message
     #message = f"{source} T:{throttle} S:{steering}\n"
@@ -146,7 +144,7 @@ while True:
     ser.write(message)
         
     # stupid ass debug message ong
-    print(f"Sent: Throttle={throttle}, Steering={steering}")
+    print(f"Sent: Throttle={message[0]}, Steering={message[1]}")
 
-    time.sleep(0.1)  # Small delay to reduce CPU usage?
+    #time.sleep(0.1)  # Small delay to reduce CPU usage?
 # cap.released necessary here?
