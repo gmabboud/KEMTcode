@@ -283,27 +283,27 @@ void LoRaSetup() {
 
 // Tx/Rx functions
 
-// void onRxTimeout() {
-//   Serial.println("Rx Timeout");
-// }
+void onRxTimeout() {
+  Serial.println("Rx Timeout");
+}
 
-// void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
-//   signalStrength = rssi;
-//   signalTime = millis();
-//   Serial.println("Received");
-//   if (size == sizeof(boatMsg)) {
-//     boatMsg temp;
-//     memcpy(temp.str, payload, sizeof(boatMsg));
-//     if (memcmp(temp.status.secretCode, BOATMSG_CODE, sizeof(BOATMSG_CODE)) == 0) {
-//       memcpy(inboundMsg.str, payload, sizeof(inboundMsg));
-//       Serial.printf("Copied %s, rssi: %d, pos: %d, lat: %.2f, lon: %.2f, speed: %.2f \n", 
-//         inboundMsg.status.secretCode, inboundMsg.status.lastRSSI, inboundMsg.status.steeringPosition,
-//         inboundMsg.status.latitude, inboundMsg.status.longitude, inboundMsg.status.speed);
-//       // Serial.println("Copied.");
-//     }
+void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
+  signalStrength = rssi;
+  signalTime = millis();
+  Serial.println("Received");
+  if (size == sizeof(boatMsg)) {
+    boatMsg temp;
+    memcpy(temp.str, payload, sizeof(boatMsg));
+    if (memcmp(temp.status.secretCode, BOATMSG_CODE, sizeof(BOATMSG_CODE)) == 0) {
+      memcpy(inboundMsg.str, payload, sizeof(inboundMsg));
+      Serial.printf("Copied %s, rssi: %d, pos: %d, lat: %.2f, lon: %.2f, speed: %.2f \n", 
+        inboundMsg.status.secretCode, inboundMsg.status.lastRSSI, inboundMsg.status.steeringPosition,
+        inboundMsg.status.latitude, inboundMsg.status.longitude, inboundMsg.status.speed);
+      // Serial.println("Copied.");
+    }
 
-//   }
-// }
+  }
+}
 
 void OnTxDone() {
   // Serial.printf("Copied %s, fwd: %d, rev: %d, left: %d, right: %d, kill: %d \n",

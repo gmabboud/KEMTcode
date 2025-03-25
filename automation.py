@@ -56,15 +56,15 @@ def collision_detection():
 
             # Determine movement logic
             if w * h > SIZE_THRESHOLD:
-                throttle = 1200
+                throttle = 20
             else:
-                throttle = 1700
+                throttle = 70
 
             # Determine steering direction
             if center_x < image_center:
-                steering = 1700
+                steering = 10
             else:
-                steering = 1300
+                steering = 90
 
             return throttle, steering
 
@@ -120,6 +120,11 @@ while True:
         collision_avoidance = True
     else:
         collision_avoidance = False
+        cd_steering = 0
+        cd_throttle = 0
+
+    #Debug
+    collision_avoidance = True
 
     # Prepare the message
     if collision_avoidance:
@@ -134,8 +139,8 @@ while True:
     
     #Debug message
     # Set debug throttle and steering values
-    throttle = 1 
-    steering = 1
+    #throttle = 1 
+    #steering = 1
 
     # Create a bytes object with two uint8_t values
     message = bytes([throttle, steering])

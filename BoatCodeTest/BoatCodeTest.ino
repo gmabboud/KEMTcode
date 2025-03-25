@@ -227,18 +227,18 @@ void doActions() {
 void controlBoat(int throttleValue, int steeringValue) {
     // TODO: Add new logic to put the throttle at a certain percentage out of 100%.
     // Throttle forward and backwards
-  if (throttleValue == 1) {
+  if (throttleValue > 0) {
     if (throttleState != 1) {
       throttleState = 1;
       throttle = 1000;
     } else {
-      throttle += 2500;
+      //throttle += 2500;
       //throttle = min(throttle, (3*UINT16_MAX)/4);
-      throttle = min(throttle, (10*UINT16_MAX)/20);
+      throttle = min((throttleValue*UINT16_MAX)/100, (19*UINT16_MAX)/20);
     }
     digitalWrite(GPIO5, LOW);
     analogWrite(PWM1, throttle);
-  } else if (throttleValue == 10){
+  } else if (throttleValue == 0){
     if (throttleState != -1) {
       throttleState = -1;
       throttle = 1000;
@@ -255,10 +255,10 @@ void controlBoat(int throttleValue, int steeringValue) {
   }
 
     // TODO: Add new logic to steer to a given position
-    if (steeringValue == 10) {
+    if (steeringValue >= 50) {
         digitalWrite(STEERING_LEFT_PIN, HIGH);
         digitalWrite(STEERING_RIGHT_PIN, LOW);
-    } else if (steeringValue == 1) {
+    } else if (steeringValue < 50) {
         digitalWrite(STEERING_LEFT_PIN, LOW);
         digitalWrite(STEERING_RIGHT_PIN, HIGH);
     } else {
