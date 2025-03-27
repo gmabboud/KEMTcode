@@ -5,14 +5,12 @@
 
 ### Make some functions for all the vision stuff to make the main loop cleaner, then we can integrate the mavlink stuff cuz its simple.
 
-###### WORRY ABOUT THE AUTOMATION BEFORE COLLISION DETECTION
-
 import cv2
 import numpy as np
 import subprocess
 import time
 import serial
-#from pymavlink import mavutil
+from pymavlink import mavutil
 
 ### Variables
 # Predefined HSV values, to be determined using the PC program beforehand
@@ -32,7 +30,7 @@ STEERING_ID = 1
 def collision_detection():
     ret, img = cap.read()
     if not ret:
-        return None, None  # Return None if camera capture fails
+        return None, None
 
     #imgHSV = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
@@ -71,26 +69,26 @@ def collision_detection():
     return None, None  # No valid detection
 
 ### MAVLink interpretation function
-# def request_servo_output():
-#     print("Requesting SERVO_OUTPUT_RAW message...")
-#     # Send a message interval request to the Pixhawk
-#     connection.mav.command_long_send(
-#         connection.target_system,    # Target system ID
-#         connection.target_component, # Target component ID
-#         mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL, # Command ID
-#         0,                           # Confirmation
-#         mavutil.mavlink.MAVLINK_MSG_ID_SERVO_OUTPUT_RAW, # Message ID
-#         10000,                     # Interval in microseconds (1 second)
-#         0, 0, 0, 0, 0                # Unused parameters
-#     )
+def request_servo_output():
+    print("Requesting SERVO_OUTPUT_RAW message...")
+    # Send a message interval request to the Pixhawk
+    connection.mav.command_long_send(
+        connection.target_system,    # Target system ID
+        connection.target_component, # Target component ID
+        mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL, # Command ID
+        0,                           # Confirmation
+        mavutil.mavlink.MAVLINK_MSG_ID_SERVO_OUTPUT_RAW, # Message ID
+        10000,                     # Interval in microseconds (1 second)
+        0, 0, 0, 0, 0                # Unused parameters
+    )
 
 ### Initialization
 
 # Connect to pixhawk
-#connection = mavutil.mavlink_connection('/dev/serial/by-id/usb-ArduPilot_Pixhawk1_2B003D000F51383130333132-if00', baud=115200)
+connection = mavutil.mavlink_connection('/dev/serial/by-id/usb-ArduPilot_Pixhawk1_2B003D000F51383130333132-if00', baud=115200)
 # Wait for a heartbeat from the Pixhawk
-#connection.wait_heartbeat()
-#print("Heartbeat received!")
+connection.wait_heartbeat()
+print("Heartbeat received!")
 
 # Initialize Camera
 cap = cv2.VideoCapture(0)
@@ -108,11 +106,11 @@ collision_avoidance = False
 ### Main loop
 while True:
     # Pull message from MAVLink
-    #mav_message = connection.recv_match(type='SERVO_OUTPUT_RAW', blocking=True) #Should blocking equal true?
+    mav_message = connection.recv_match(type='SERVO_OUTPUT_RAW', blocking=True) #Should blocking equal true?
     servo_throttle = f"servo{THROTTLE_ID}_raw"
     servo_steering = f"servo{STEERING_ID}_raw"
-    #mav_throttle = getattr(mav_message, servo_throttle)
-    #mav_steering = getattr(mav_message, servo_steering)
+    mav_throttle = getattr(mav_message, servo_throttle)
+    mav_steering = getattr(mav_message, servo_steering)
 
     cd_throttle, cd_steering = collision_detection()
     print(f"Throttle: {cd_throttle}, Steering: {cd_steering}")
@@ -120,36 +118,32 @@ while True:
         collision_avoidance = True
     else:
         collision_avoidance = False
-        cd_steering = 0
-        cd_throttle = 0
-
-    #Debug
-    collision_avoidance = True
 
     # Prepare the message
     if collision_avoidance:
         throttle = cd_throttle
         steering = cd_steering
-    #else:
-        #throttle = mav_throttle if mav_throttle is not None else 1500  # Default neutral
-        #steering = mav_steering if mav_steering is not None else 1500  # Default neutral
-        
-    # Send UART message
-    #message = f"{source} T:{throttle} S:{steering}\n"
+    else:
+        mav_throttle = mav_throttle if mav_throttle is not None else 1500
+        mav_steering = mav_steering if mav_steering is not None else 1500
+        throttle = max(0, min(100, int((mav_throttle - 1000) / 10)))
+        steering = max(0, min(100, int((mav_steering - 1000) / 10)))
     
     #Debug message
     # Set debug throttle and steering values
-    #throttle = 1 
-    #steering = 1
+    if throttle is None:
+        throttle = 0
+    if steering is None:
+        steering = 150 #150 is beyond the range of steering
 
-    # Create a bytes object with two uint8_t values
+    # Create a bytes object with two uint8_t values for UART
     message = bytes([throttle, steering])
 
     #Disable for debugging
     ser.write(message)
         
-    # stupid ass debug message ong
+    # Debug sent message print
     print(f"Sent: Throttle={message[0]}, Steering={message[1]}")
 
-    #time.sleep(0.1)  # Small delay to reduce CPU usage?
+    time.sleep(0.001)  # Small delay to reduce CPU usage?
 # cap.released necessary here?

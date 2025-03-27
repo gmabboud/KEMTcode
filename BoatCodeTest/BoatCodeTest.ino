@@ -1,9 +1,3 @@
-// #include <Wire.h>           
-// #include "GPS_Air530Z.h"
-// #include "HT_SSD1306Wire.h"
-// #include "LoRaWan_APP.h"
-
-// Added these because they are in the remote control code for display stuff
 #include <Wire.h>         
 #include <string>
 #include <sstream>
@@ -48,17 +42,17 @@ union controllerMsg {
     uint8_t str[13];
   } inboundMsg;
   
-// union boatMsg {
-//     struct {
-//       uint8_t secretCode[8];
-//       int16_t lastRSSI;
-//       int16_t steeringPosition;
-//       float latitude;
-//       float longitude;
-//       float speed;
-//     } status;
-//     uint8_t str[24];
-// };
+union boatMsg {
+    struct {
+      uint8_t secretCode[8];
+      int16_t lastRSSI;
+      int16_t steeringPosition;
+      float latitude;
+      float longitude;
+      float speed;
+    } status;
+    uint8_t str[24];
+};
 
 static RadioEvents_t RadioEvents;
 void OnTxDone( void );
@@ -69,10 +63,8 @@ uint32_t signalTime = 0;
 int16_t lastRSSI = 0;
 
 // UART Communication Variables
-//String receivedData = "";  // Buffer to store UART messages
-//uint8_t serialBuffer[BUFFER_SIZE] = {1, 1};  // Buffer to store incoming UART message
-uint8_t serialBuffer[BUFFER_SIZE];
-int bufferSize;
+// uint8_t serialBuffer[BUFFER_SIZE];
+// int bufferSize;
 bool automationMode = false; // Flag for automation mode
 
 // Pin Definitions
@@ -99,27 +91,27 @@ static SSD1306Wire display(0x3c, 500000, SDA, SCL, GEOMETRY_128_64, GPIO10); // 
 
 
 void setup() {
-    Serial1.begin(9600); // Initialize UART for communication with Raspberry Pi
+    //Serial1.begin(9600); // Initialize UART for communication with Raspberry Pi
 
-    // // LoRa Setup in controller this is a separate function so this might not be necessary?
-    // RadioEvents.RxDone = OnRxDone;
-    // RadioEvents.RxTimeout = OnRxTimeout;
-    // //RadioEvents.TxDone = OnTxDone;
-    // //RadioEvents.TxTimeout = OnTxTimeout;
+    // LoRa Setup in controller this is a separate function so this might not be necessary?
+    RadioEvents.RxDone = OnRxDone;
+    RadioEvents.RxTimeout = OnRxTimeout;
+    RadioEvents.TxDone = OnTxDone;
+    RadioEvents.TxTimeout = OnTxTimeout;
 
-    // Radio.Init( &RadioEvents );
-    // Radio.SetChannel( RF_FREQUENCY );
-    // Radio.SetTxConfig( MODEM_LORA, TX_OUTPUT_POWER, 0, LORA_BANDWIDTH,
-    //                     LORA_SPREADING_FACTOR, LORA_CODINGRATE,
-    //                     LORA_PREAMBLE_LENGTH, LORA_FIX_LENGTH_PAYLOAD_ON,
-    //                     true, 0, 0, LORA_IQ_INVERSION_ON, 3000 );
+    Radio.Init( &RadioEvents );
+    Radio.SetChannel( RF_FREQUENCY );
+    Radio.SetTxConfig( MODEM_LORA, TX_OUTPUT_POWER, 0, LORA_BANDWIDTH,
+                        LORA_SPREADING_FACTOR, LORA_CODINGRATE,
+                        LORA_PREAMBLE_LENGTH, LORA_FIX_LENGTH_PAYLOAD_ON,
+                        true, 0, 0, LORA_IQ_INVERSION_ON, 3000 );
 
-    // Radio.SetRxConfig( MODEM_LORA, LORA_BANDWIDTH, LORA_SPREADING_FACTOR,
-    //                     LORA_CODINGRATE, 0, LORA_PREAMBLE_LENGTH,
-    //                     LORA_SYMBOL_TIMEOUT, LORA_FIX_LENGTH_PAYLOAD_ON,
-    //                     0, true, 0, 0, LORA_IQ_INVERSION_ON, true );
+    Radio.SetRxConfig( MODEM_LORA, LORA_BANDWIDTH, LORA_SPREADING_FACTOR,
+                        LORA_CODINGRATE, 0, LORA_PREAMBLE_LENGTH,
+                        LORA_SYMBOL_TIMEOUT, LORA_FIX_LENGTH_PAYLOAD_ON,
+                        0, true, 0, 0, LORA_IQ_INVERSION_ON, true );
                     
-    // GPS.begin();
+     GPS.begin();
 
     pinMode(THROTTLE_PIN, OUTPUT);
     pinMode(STEERING_LEFT_PIN, OUTPUT);
@@ -129,20 +121,19 @@ void setup() {
     digitalWrite(GPIO4, HIGH);
 
     // Serial Debug Display
-    outputs = displaySerial;
+    //outputs = displaySerial;
     // Initialize the display
-    display.init();
-    display.setFont(ArialMT_Plain_10);
-
+    //display.init();
+    //display.setFont(ArialMT_Plain_10);
 }
 
 void loop() {
     // Read UART messages from Raspberry Pi
-    bufferSize = Serial1.read(serialBuffer, TIMEOUT);
+    //bufferSize = Serial1.read(serialBuffer, TIMEOUT);
     
     // DEBUG: Simulate receiving data (for testing)
-    int bufferSize = 2;  // Simulating a successful read of 2 bytes
-    processUARTMessage(serialBuffer, bufferSize);
+    //int bufferSize = 2;  // Simulating a successful read of 2 bytes
+    //processUARTMessage(serialBuffer, bufferSize);
     
     // if (bufferSize) {  // If a valid message is received
     //     // Process the message
@@ -151,30 +142,31 @@ void loop() {
 
     // Serial Debug Display
     // Clear the display
-    display.clear();
+    //display.clear();
     // Draw the current display method
-    outputs();
-    display.display();  
+    //outputs();
+    //display.display();  
 
 
     // // NOTE: I'm not sure this code is even correct or what we want to do but it is what the previous code did to work
-    // Radio.Rx(500);
-    // delay(100);
-    // Radio.IrqProcess();
+    Radio.Rx(500);
+    delay(100);
+    Radio.IrqProcess();
 
-    // // Perform actions based on automation or remote control
+    // Perform actions based on automation or remote control
     doActions();
 
-    // delay(100);  // Reduce CPU usage?
+    delay(100);  // Reduce CPU usage?
     // // IDK if this is necessary either
-    // Radio.IrqProcess();
+    Radio.IrqProcess();
 }
 
 void doActions() {
-    // Kill switch that is usually here does nothing?
+    // Kill switch is usually here
+    //
     
     //DEBUG:
-    automationMode = true;
+    automationMode = false;
 
     if (automationMode) {
         // Use automation values from Raspberry Pi
@@ -255,7 +247,7 @@ void controlBoat(int throttleValue, int steeringValue) {
   }
 
     // TODO: Add new logic to steer to a given position
-    if (steeringValue >= 50) {
+    if (steeringValue >= 50 && steeringValue <= 100) {
         digitalWrite(STEERING_LEFT_PIN, HIGH);
         digitalWrite(STEERING_RIGHT_PIN, LOW);
     } else if (steeringValue < 50) {
@@ -302,47 +294,47 @@ void processUARTMessage(uint8_t *message, int length) {
     }
 }
 
-// TX and RX functions
-// void OnTxDone() {
-//     Serial1.println("Sent msg");
-// }
+//TX and RX functions
+void OnTxDone() {
+    Serial1.println("Sent msg");
+}
   
-// void OnTxTimeout() {
-//     Serial1.println("Tx timeout");
-// }
+void OnTxTimeout() {
+    Serial1.println("Tx timeout");
+}
   
-// void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
-//     signalTime = millis();
-//     lastRSSI = rssi;
-//     Serial1.println("Received");
-//     if (size == sizeof(controllerMsg)) {
-//         controllerMsg temp;
-//         memcpy(temp.str, payload, sizeof(controllerMsg));
-//         if (memcmp(temp.status.secretCode, CONTROLLERMSG_CODE, sizeof(CONTROLLERMSG_CODE)) == 0) {
-//         // Debug printing on the screen
-//         //Serial1.printf("Copied %s, fwd: %d, rev: %d, left: %d, right: %d, kill: %d \n",
-//             //inboundMsg.status.secretCode, inboundMsg.status.isGoingForward, inboundMsg.status.isGoingBackward,
-//             //inboundMsg.status.isSteeringLeft, inboundMsg.status.isSteeringRight, inboundMsg.status.killswitch);
-//         memcpy(inboundMsg.str, payload, sizeof(controllerMsg));
-//         }
+void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
+    signalTime = millis();
+    lastRSSI = rssi;
+    Serial1.println("Received");
+    if (size == sizeof(controllerMsg)) {
+        controllerMsg temp;
+        memcpy(temp.str, payload, sizeof(controllerMsg));
+        if (memcmp(temp.status.secretCode, CONTROLLERMSG_CODE, sizeof(CONTROLLERMSG_CODE)) == 0) {
+        // Debug printing on the screen
+        //Serial1.printf("Copied %s, fwd: %d, rev: %d, left: %d, right: %d, kill: %d \n",
+            //inboundMsg.status.secretCode, inboundMsg.status.isGoingForward, inboundMsg.status.isGoingBackward,
+            //inboundMsg.status.isSteeringLeft, inboundMsg.status.isSteeringRight, inboundMsg.status.killswitch);
+        memcpy(inboundMsg.str, payload, sizeof(controllerMsg));
+        }
 
-//     }
+    }
 
-// }
+}
   
-// void OnRxTimeout() {
-//     Serial1.println("Rx timeout");
-// }
+void OnRxTimeout() {
+    Serial.println("Rx timeout");
+}
 
 // Serial Debug Display function
-void displaySerial() {
-    char messageBuffer[20];  // Small buffer for formatted output
+// void displaySerial() {
+//     char messageBuffer[20];  // Small buffer for formatted output
 
-    // Format: "T:XX S:XX" (Throttle and Steering values)
-    snprintf(messageBuffer, sizeof(messageBuffer), "T:%d S:%d", serialBuffer[0], serialBuffer[1]);
+//     // Format: "T:XX S:XX" (Throttle and Steering values)
+//     snprintf(messageBuffer, sizeof(messageBuffer), "T:%d S:%d", serialBuffer[0], serialBuffer[1]);
 
-    display.setTextAlignment(TEXT_ALIGN_LEFT);
-    display.setFont(ArialMT_Plain_16);
-    display.drawString(0, 0, "Serial Message");
-    display.drawString(0, 20, messageBuffer);  // Display formatted throttle & steering
-}
+//     display.setTextAlignment(TEXT_ALIGN_LEFT);
+//     display.setFont(ArialMT_Plain_16);
+//     display.drawString(0, 0, "Serial Message");
+//     display.drawString(0, 20, messageBuffer);  // Display formatted throttle & steering
+// }

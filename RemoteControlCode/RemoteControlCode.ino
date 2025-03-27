@@ -51,17 +51,17 @@ union controllerMsg {
   uint8_t str[13];
 };
 
-// union boatMsg {
-//   struct {
-//     uint8_t secretCode[8];
-//     int16_t lastRSSI;
-//     int16_t steeringPosition;
-//     float latitude;
-//     float longitude;
-//     float speed;
-//   } status;
-//   uint8_t str[24];
-// } inboundMsg;
+union boatMsg {
+  struct {
+    uint8_t secretCode[8];
+    int16_t lastRSSI;
+    int16_t steeringPosition;
+    float latitude;
+    float longitude;
+    float speed;
+  } status;
+  uint8_t str[24];
+} inboundMsg;
 
 void OnTxDone( void );
 void OnTxTimeout( void );
@@ -246,7 +246,7 @@ void VextOFF(void) {//Vext default OFF
 
 void writeDisplay(int select) {
   select %= 8;
-  // Removed displayAutomation, from the outputs list
+  // Removed displayAutomation, displayConnectionStrength, displayPosition, displaySpeed, displaySteeringPosition from the outputs list
   DisplayFunc outputs[] = {displayTeamName, displayThrottle, displaySteering, displayKillSwitch, displayConnectionStrength, displayPosition, displaySpeed, displaySteeringPosition};
 
   // Clear the display
