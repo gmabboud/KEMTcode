@@ -34,6 +34,7 @@ union controllerMsg {
       uint8_t secretCode[8];
       bool isGoingForward;
       bool isGoingBackward;
+      //uint8_t throttlePercentage;
       bool isSteeringLeft;
       bool isSteeringRight;
       bool killswitch;
@@ -117,14 +118,15 @@ void setup() {
     pinMode(STEERING_LEFT_PIN, OUTPUT);
     pinMode(STEERING_RIGHT_PIN, OUTPUT);
     pinMode(MOTOR_CONTROLLER_ENABLE, OUTPUT);
-    // Enabling the motor controller?
+    // Enabling the motor relay
     digitalWrite(GPIO4, HIGH);
 
     // Serial Debug Display
     //outputs = displaySerial;
+    outputs = displaySteering;
     // Initialize the display
-    //display.init();
-    //display.setFont(ArialMT_Plain_10);
+    display.init();
+    display.setFont(ArialMT_Plain_10);
 }
 
 void loop() {
@@ -140,12 +142,12 @@ void loop() {
     //     processUARTMessage(serialBuffer, bufferSize);
     // }
 
-    // Serial Debug Display
+    // Debug Displays
     // Clear the display
-    //display.clear();
+    display.clear();
     // Draw the current display method
-    //outputs();
-    //display.display();  
+    outputs();
+    display.display();  
 
 
     // // NOTE: I'm not sure this code is even correct or what we want to do but it is what the previous code did to work
@@ -162,56 +164,59 @@ void loop() {
 }
 
 void doActions() {
-    // Kill switch is usually here
-    //
+  // if (inboundMsg.status.killswitch) {
+  //   killswitchLock();
+  // }
     
-    //DEBUG:
-    automationMode = false;
+  //DEBUG:
+  automationMode = false;
 
-    if (automationMode) {
-        // Use automation values from Raspberry Pi
-        controlBoat(automationThrottle, automationSteering);
-    } else {
-        //controlBoat(controllerThrottle, controllerSteering);
-        // Use remote control values
-        if (inboundMsg.status.isGoingForward) {
-            if (throttleState != 1) {
-              throttleState = 1;
-              throttle = 1000;
-            } else {
-              throttle += 2500;
-              //throttle = min(throttle, (3*UINT16_MAX)/4);
-              throttle = min(throttle, (19*UINT16_MAX)/20);
-            }
-            digitalWrite(GPIO5, LOW);
-            analogWrite(PWM1, throttle);
-        } else if (inboundMsg.status.isGoingBackward){
-            if (throttleState != -1) {
-              throttleState = -1;
-              throttle = 1000;
-            } else {
-              throttle += 2500;
-              //throttle = min(throttle, (3*UINT16_MAX)/4);
-              throttle = min(throttle, (19*UINT16_MAX)/20);
-            }
-            digitalWrite(GPIO5, HIGH);
-            analogWrite(PWM1, throttle);
-        } else {
-            throttleState = 0;
-            analogWrite(PWM1, 0);
-        }
+  if (automationMode) {
+      // Use automation values from Raspberry Pi
+      controlBoat(automationThrottle, automationSteering);
+  } else {
+      //controlBoat(controllerThrottle, controllerSteering);
+      // Use remote control values
+      if (inboundMsg.status.isGoingForward) {
+          if (throttleState != 1) {
+            throttleState = 1;
+            throttle = 1000;
+          } else {
+            throttle += 2000;
+            //throttle = min(throttle, (3*UINT16_MAX)/4);
+            throttle = min(throttle, (10*UINT16_MAX)/20);
+            //throttle = min(inboundMsg.status.throttlePercentage, (18*UINT16_MAX/20));
+          }
+          digitalWrite(GPIO5, LOW);
+          analogWrite(PWM1, throttle);
+      } else if (inboundMsg.status.isGoingBackward){
+          if (throttleState != -1) {
+            throttleState = -1;
+            throttle = 1000;
+          } else {
+            throttle += 2000;
+            //throttle = min(throttle, (3*UINT16_MAX)/4);
+            throttle = min(throttle, (10*UINT16_MAX)/20);
+            //throttle = min(inboundMsg.status.throttlePercentage, (18*UINT16_MAX/20));
+          }
+          digitalWrite(GPIO5, HIGH);
+          analogWrite(PWM1, throttle);
+      } else {
+          throttleState = 0;
+          analogWrite(PWM1, 0);
+      }
 
-        if (inboundMsg.status.isSteeringLeft) {
-            digitalWrite(STEERING_LEFT_PIN, HIGH);
-            digitalWrite(STEERING_RIGHT_PIN, LOW);
-        } else if (inboundMsg.status.isSteeringRight) {
-            digitalWrite(STEERING_LEFT_PIN, LOW);
-            digitalWrite(STEERING_RIGHT_PIN, HIGH);
-        } else {
-            digitalWrite(STEERING_LEFT_PIN, LOW);
-            digitalWrite(STEERING_RIGHT_PIN, LOW);
-        }
-    }
+      if (inboundMsg.status.isSteeringLeft) {
+          digitalWrite(STEERING_LEFT_PIN, HIGH);
+          digitalWrite(STEERING_RIGHT_PIN, LOW);
+      } else if (inboundMsg.status.isSteeringRight) {
+          digitalWrite(STEERING_LEFT_PIN, LOW);
+          digitalWrite(STEERING_RIGHT_PIN, HIGH);
+      } else {
+          digitalWrite(STEERING_LEFT_PIN, LOW);
+          digitalWrite(STEERING_RIGHT_PIN, LOW);
+      }
+  }
 }
 
 // Function to control the boat given throttle and steering values
@@ -259,20 +264,19 @@ void controlBoat(int throttleValue, int steeringValue) {
     }
 }
 
-// // Function to process incoming UART messages and update automation throttle and steering values
-// void processUARTMessage(String message) {
-//     // Look for correctly prefixed message
-//     if (message.startsWith("MV") || message.startsWith("CD")) { 
+void killswitchLock() {
+  analogWrite(PWM1, 0);
+  digitalWrite(GPIO6, LOW);
+  digitalWrite(GPIO7, LOW);
+  // Disable motor relay
+  digitalWrite(GPIO4, LOW);
+  while(true) {
+    //Serial.println(analogRead(ADC3));
+    //Radio.Send(updateStatusVals().str, sizeof(boatMsg));
+    delay(100);
+  }
+}
 
-//         int tIndex = message.indexOf("T:");
-//         int sIndex = message.indexOf("S:");
-//         if (tIndex != -1 && sIndex != -1) {
-//             automationThrottle = message.substring(tIndex + 2, sIndex).toInt();
-//             automationSteering = message.substring(sIndex + 2).toInt();
-//         }
-//         Serial1.println("Received automation values - Throttle: " + String(automationThrottle) + ", Steering: " + String(automationSteering));
-//     }
-//  }
 // Function to extract throttle and steering from received message
 void processUARTMessage(uint8_t *message, int length) {
     if (length == 2) {  // Expect exactly 2 bytes (throttle and steering)
@@ -338,3 +342,12 @@ void OnRxTimeout() {
 //     display.drawString(0, 0, "Serial Message");
 //     display.drawString(0, 20, messageBuffer);  // Display formatted throttle & steering
 // }
+
+// Steering Debug Display function
+void displaySteering() {
+    String steering = String(analogRead(ADC3));
+    display.setTextAlignment(TEXT_ALIGN_LEFT);
+    display.setFont(ArialMT_Plain_16);
+    display.drawString(0, 0, "Current steering reading");
+    display.drawString(0, 20, steering);  // Display formatted throttle & steering
+}

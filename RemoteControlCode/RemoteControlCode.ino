@@ -13,7 +13,7 @@
 
 //Constants
 #define RF_FREQUENCY 915000000 // Hz
-#define TX_OUTPUT_POWER 14 // dBm
+#define TX_OUTPUT_POWER 21 // dBm
 #define LORA_BANDWIDTH 0 // [0: 125 kHz, 1: 250 kHz, 2: 500 kHz, 3: Reserved]
 #define LORA_SPREADING_FACTOR 7 // [SF7..SF12]
 #define LORA_CODINGRATE 1 // [1: 4/5, 2: 4/6, 3: 4/7, 4: 4/8]
@@ -24,11 +24,18 @@
 #define RX_TIMEOUT_VALUE 1000
 #define BUFFER_SIZE 30 // Define the payload size here
 
-#define JOYSTICK1_NEUTRAL 2650  // Center of the throttle
-#define JOYSTICK2_NEUTRAL 2860  // Center of the steering
+// Full throttle: 4095
+// Full throttle backwards: 240
+// Middle (neutral no throttle): 2500
 
-#define JOYSTICK1_DEADZONE 350  // Deadzone for the throttle
-#define JOYSTICK2_DEADZONE 350  // Deadzone for the steering
+// Steering center: 3063
+// Steering right: 400
+// Steering left: 4095
+#define JOYSTICK1_NEUTRAL 2500  // Center of the throttle
+#define JOYSTICK2_NEUTRAL 3063  // Center of the steering
+
+#define JOYSTICK1_DEADZONE 1500  // Deadzone for the throttle
+#define JOYSTICK2_DEADZONE 500  // Deadzone for the steering
 
 //Global Variables
 static SSD1306Wire display(0x3c, 500000, SDA, SCL, GEOMETRY_128_64, GPIO10); // addr, freq, SDA, SCL, resolution, rst
@@ -43,6 +50,7 @@ union controllerMsg {
     uint8_t secretCode[8];
     bool isGoingForward;
     bool isGoingBackward;
+    //uint8_t throttlePercentage;
     bool isSteeringLeft;
     bool isSteeringRight;
     bool killswitch;
@@ -81,25 +89,42 @@ typedef void (*DisplayFunc)(void);
 static RadioEvents_t RadioEvents = {};
 void OnRxDone( uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr );
 
+// uint8_t mapThrottlePercent(int joystickValue) {
+//   if (joystickValue > 2500) {
+//       // Forward range: 2501 → 4095 → 0% → 100%
+//       return (uint8_t) constrain(map(joystickValue, 2500, 4095, 0, 100), 0, 100);
+//   } else if (joystickValue < 2500) {
+//       // Reverse range: 2499 → 240 → 0% → 100%
+//       return (uint8_t) constrain(map(joystickValue, 2500, 240, 0, 100), 0, 100);
+//   } else {
+//       // Centered (2500) = 0% throttle
+//       return 0;
+//   }
+// }
+
 controllerMsg updateStatusVals() {
   controllerMsg outboundMsg = {0};
   memcpy(outboundMsg.status.secretCode, CONTROLLERMSG_CODE, sizeof(CONTROLLERMSG_CODE));  
   
   // Update throttle commands
   int reading1 = analogRead(ADC1);
+  //uint8_t throttleValue = mapThrottlePercent(reading1);
     if (reading1 > JOYSTICK1_NEUTRAL + JOYSTICK1_DEADZONE || reading1 < JOYSTICK1_NEUTRAL - JOYSTICK1_DEADZONE) {
       // Joystick is outside the deadzone
       if (reading1 > JOYSTICK1_NEUTRAL + JOYSTICK1_DEADZONE) {
         outboundMsg.status.isGoingForward = true;
         outboundMsg.status.isGoingBackward = false;
+        //outboundMsg.status.throttlePercentage = throttleValue;
       } else {
         outboundMsg.status.isGoingForward = false;
         outboundMsg.status.isGoingBackward = true;
+        //outboundMsg.status.throttlePercentage = throttleValue;
       }
     } else {
       // Joystick is within the deadzone
       outboundMsg.status.isGoingForward = false;
       outboundMsg.status.isGoingBackward = false;
+      //outboundMsg.status.throttlePercentage = throttleValue;
     }
 
     // Update steering commands with deadzone for Joystick 2
