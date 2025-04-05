@@ -43,14 +43,13 @@ static SSD1306Wire display(0x3c, 500000, SDA, SCL, GEOMETRY_128_64, GPIO10); // 
 // These messages will prevent bogus messages from being interpretted
 const uint8_t CONTROLLERMSG_CODE[8] = "UK RC  ";
 const uint8_t BOATMSG_CODE[8] = "UK BOAT";
+
 // This struct contains commands for the boat
-// TODO: Change these to be ints to reflect new boat and controller code
 union controllerMsg {
   struct {
     uint8_t secretCode[8];
     bool isGoingForward;
     bool isGoingBackward;
-    //uint8_t throttlePercentage;
     bool isSteeringLeft;
     bool isSteeringRight;
     bool killswitch;
@@ -89,42 +88,25 @@ typedef void (*DisplayFunc)(void);
 static RadioEvents_t RadioEvents = {};
 void OnRxDone( uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr );
 
-// uint8_t mapThrottlePercent(int joystickValue) {
-//   if (joystickValue > 2500) {
-//       // Forward range: 2501 → 4095 → 0% → 100%
-//       return (uint8_t) constrain(map(joystickValue, 2500, 4095, 0, 100), 0, 100);
-//   } else if (joystickValue < 2500) {
-//       // Reverse range: 2499 → 240 → 0% → 100%
-//       return (uint8_t) constrain(map(joystickValue, 2500, 240, 0, 100), 0, 100);
-//   } else {
-//       // Centered (2500) = 0% throttle
-//       return 0;
-//   }
-// }
-
 controllerMsg updateStatusVals() {
   controllerMsg outboundMsg = {0};
   memcpy(outboundMsg.status.secretCode, CONTROLLERMSG_CODE, sizeof(CONTROLLERMSG_CODE));  
   
   // Update throttle commands
   int reading1 = analogRead(ADC1);
-  //uint8_t throttleValue = mapThrottlePercent(reading1);
     if (reading1 > JOYSTICK1_NEUTRAL + JOYSTICK1_DEADZONE || reading1 < JOYSTICK1_NEUTRAL - JOYSTICK1_DEADZONE) {
       // Joystick is outside the deadzone
       if (reading1 > JOYSTICK1_NEUTRAL + JOYSTICK1_DEADZONE) {
         outboundMsg.status.isGoingForward = true;
         outboundMsg.status.isGoingBackward = false;
-        //outboundMsg.status.throttlePercentage = throttleValue;
       } else {
         outboundMsg.status.isGoingForward = false;
         outboundMsg.status.isGoingBackward = true;
-        //outboundMsg.status.throttlePercentage = throttleValue;
       }
     } else {
       // Joystick is within the deadzone
       outboundMsg.status.isGoingForward = false;
       outboundMsg.status.isGoingBackward = false;
-      //outboundMsg.status.throttlePercentage = throttleValue;
     }
 
     // Update steering commands with deadzone for Joystick 2
@@ -283,29 +265,6 @@ void writeDisplay(int select) {
   display.display();  
 }
 
-// ===== LORAHANDLING.INO =====
-
-void LoRaSetup() {
-  RadioEvents.RxTimeout = onRxTimeout;
-  RadioEvents.RxDone = OnRxDone;
-  RadioEvents.TxDone = OnTxDone;
-  RadioEvents.TxTimeout = OnTxTimeout;
-
-  Radio.Init(&RadioEvents);
-  Radio.SetChannel(RF_FREQUENCY);
-  Radio.SetTxConfig( MODEM_LORA, TX_OUTPUT_POWER, 0, LORA_BANDWIDTH,
-                      LORA_SPREADING_FACTOR, LORA_CODINGRATE,
-                      LORA_PREAMBLE_LENGTH, LORA_FIX_LENGTH_PAYLOAD_ON,
-                      true, 0, 0, LORA_IQ_INVERSION_ON, 3000 );
-
-  Radio.SetRxConfig( MODEM_LORA, LORA_BANDWIDTH, LORA_SPREADING_FACTOR,
-                      LORA_CODINGRATE, 0, LORA_PREAMBLE_LENGTH,
-                      LORA_SYMBOL_TIMEOUT, LORA_FIX_LENGTH_PAYLOAD_ON,
-                      0, true, 0, 0, LORA_IQ_INVERSION_ON, true );
-
-
-}
-
 // Tx/Rx functions
 
 void onRxTimeout() {
@@ -331,9 +290,6 @@ void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
 }
 
 void OnTxDone() {
-  // Serial.printf("Copied %s, fwd: %d, rev: %d, left: %d, right: %d, kill: %d \n",
-  //   outboundMsg.status.secretCode, outboundMsg.status.isGoingForward, outboundMsg.status.isGoingBackward,
-  //   outboundMsg.status.isSteeringLeft, outboundMsg.status.isSteeringRight, outboundMsg.status.killswitch);
   Serial.println("Tx Done");
 }
 
@@ -345,7 +301,22 @@ void OnTxTimeout() {
 void setup() {
   Serial.begin(115200);
 
-  LoRaSetup();
+  RadioEvents.RxTimeout = onRxTimeout;
+  RadioEvents.RxDone = OnRxDone;
+  RadioEvents.TxDone = OnTxDone;
+  RadioEvents.TxTimeout = OnTxTimeout;
+
+  Radio.Init(&RadioEvents);
+  Radio.SetChannel(RF_FREQUENCY);
+  Radio.SetTxConfig( MODEM_LORA, TX_OUTPUT_POWER, 0, LORA_BANDWIDTH,
+                      LORA_SPREADING_FACTOR, LORA_CODINGRATE,
+                      LORA_PREAMBLE_LENGTH, LORA_FIX_LENGTH_PAYLOAD_ON,
+                      true, 0, 0, LORA_IQ_INVERSION_ON, 3000 );
+
+  Radio.SetRxConfig( MODEM_LORA, LORA_BANDWIDTH, LORA_SPREADING_FACTOR,
+                      LORA_CODINGRATE, 0, LORA_PREAMBLE_LENGTH,
+                      LORA_SYMBOL_TIMEOUT, LORA_FIX_LENGTH_PAYLOAD_ON,
+                      0, true, 0, 0, LORA_IQ_INVERSION_ON, true );
   
   //Serial.println();
   //VextON();
@@ -364,11 +335,6 @@ void setup() {
 }
 
 void loop() {
-  // Debug print
-  // Serial.printf("Status %s, fwd: %d, rev: %d, left: %d, right: %d, kill: %d \n",
-  //   outboundMsg.status.secretCode, outboundMsg.status.isGoingForward, outboundMsg.status.isGoingBackward,
-  //   outboundMsg.status.isSteeringLeft, outboundMsg.status.isSteeringRight, outboundMsg.status.killswitch);
-
   static uint32_t debounceTimer = 0;
 
   // If button pressed, switch display.
@@ -385,12 +351,6 @@ void loop() {
 
   // Loops through the displays
   writeDisplay(displaySelector);
-  
-  // Commented out the receiving from the boat
-  // Listen for boat signals
-  //Radio.Rx(500);
-  //delay(100);
-  //Radio.IrqProcess();
   
   // Package up myRC data and send it to the other module
   Radio.Send(updateStatusVals().str, sizeof(controllerMsg));

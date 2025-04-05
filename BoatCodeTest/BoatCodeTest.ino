@@ -72,7 +72,7 @@ bool automationMode = false; // Flag for automation mode
 #define THROTTLE_PIN GPIO5
 #define STEERING_LEFT_PIN GPIO7
 #define STEERING_RIGHT_PIN GPIO6
-#define MOTOR_CONTROLLER_ENABLE GPIO4
+#define MOTOR_RELAY GPIO4
 
 // Controller and Automation Steering and Throttle Values
 int controllerThrottle = 0;
@@ -111,15 +111,12 @@ void setup() {
                         LORA_CODINGRATE, 0, LORA_PREAMBLE_LENGTH,
                         LORA_SYMBOL_TIMEOUT, LORA_FIX_LENGTH_PAYLOAD_ON,
                         0, true, 0, 0, LORA_IQ_INVERSION_ON, true );
-                    
-    //GPS.begin();
 
     pinMode(THROTTLE_PIN, OUTPUT);
     pinMode(STEERING_LEFT_PIN, OUTPUT);
     pinMode(STEERING_RIGHT_PIN, OUTPUT);
-    pinMode(MOTOR_CONTROLLER_ENABLE, OUTPUT);
-    // Enabling the motor relay
-    digitalWrite(GPIO4, HIGH);
+    pinMode(MOTOR_RELAY, OUTPUT);
+    digitalWrite(MOTOR_RELAY, HIGH);
 
     // Serial Debug Display
     outputs = displaySerial;
@@ -130,19 +127,13 @@ void setup() {
 }
 
 void loop() {
-    // Read UART messages from Raspberry Pi
+    // Read and process UART messages from Raspberry Pi
     bufferSize = Serial1.read(serialBuffer, TIMEOUT);
-    
-    // DEBUG: Simulate receiving data (for testing)
-    //int bufferSize = 2;  // Simulating a successful read of 2 bytes
-    //processUARTMessage(serialBuffer, bufferSize);
-    
-    if (bufferSize) {  // If a valid message is received
-        // Process the message
+    if (bufferSize) {
         processUARTMessage(serialBuffer, bufferSize);
     }
 
-    // Debug Displays
+    // Debug Display
     // Clear the display
     display.clear();
     // Draw the current display method
@@ -164,19 +155,18 @@ void loop() {
 }
 
 void doActions() {
-  // if (inboundMsg.status.killswitch) {
-  //   killswitchLock();
-  // }
+  if (inboundMsg.status.killswitch) {
+    killswitchLock();
+  }
     
   //DEBUG:
   automationMode = false;
 
   if (automationMode) {
       // Use automation values from Raspberry Pi
-      controlBoat(automationThrottle, automationSteering);
+      automationControls(automationThrottle, automationSteering);
   } else {
-      //controlBoat(controllerThrottle, controllerSteering);
-      // Use remote control values
+      // Remote control values
       if (inboundMsg.status.isGoingForward) {
           if (throttleState != 1) {
             throttleState = 1;
@@ -219,60 +209,52 @@ void doActions() {
   }
 }
 
-// Function to control the boat given throttle and steering values
-//CHANGE THIS WHEN WE HAVE CONFIRMED THE MESSAGES GET SENT CORRECTLY WE DONT WANT DIGITAL LOGIC ON THE CONTROLS
-void controlBoat(int throttleValue, int steeringValue) {
-    // TODO: Add new logic to put the throttle at a certain percentage out of 100%.
-    // Throttle forward and backwards
+void automationControls(int throttleValue, int steeringValue) {
+  // Determine the target PWM value based on throttle percentage
+  int targetPWM = (throttleValue * UINT16_MAX) / 100;
+
   if (throttleValue > 0) {
-    if (throttleState != 1) {
-      throttleState = 1;
-      throttle = 1000;
-    } else {
-      //throttle += 2500;
-      //throttle = min(throttle, (3*UINT16_MAX)/4);
-      throttle = min((throttleValue*UINT16_MAX)/100, (19*UINT16_MAX)/20);
-    }
-    digitalWrite(GPIO5, LOW);
-    analogWrite(PWM1, throttle);
-  } else if (throttleValue == 0){
-    if (throttleState != -1) {
-      throttleState = -1;
-      throttle = 1000;
-    } else {
-      throttle += 2500;
-      //throttle = min(throttle, (3*UINT16_MAX)/4);
-      throttle = min(throttle, (10*UINT16_MAX)/20);
-    }
-    digitalWrite(GPIO5, HIGH);
-    analogWrite(PWM1, throttle);
-  } else {
-    throttleState = 0;
-    analogWrite(PWM1, 0);
+      if (throttleState != 1) {
+          // New forward motion
+          throttleState = 1;
+          throttle = 1000;
+      } else {
+          // Ramp up
+          throttle = min(throttle + 2500, targetPWM);
+          // Optional safety cap
+          throttle = min(throttle, (10 * UINT16_MAX) / 20);
+      }
+
+      digitalWrite(GPIO5, LOW);  // LOW = Forward
+      analogWrite(PWM1, throttle);
+  } else if (throttleValue == 0) {
+      throttleState = 0;
+      analogWrite(PWM1, 0);
   }
 
-    // TODO: Add new logic to steer to a given position
-    if (steeringValue >= 50 && steeringValue <= 100) {
-        digitalWrite(STEERING_LEFT_PIN, HIGH);
-        digitalWrite(STEERING_RIGHT_PIN, LOW);
-    } else if (steeringValue < 50) {
-        digitalWrite(STEERING_LEFT_PIN, LOW);
-        digitalWrite(STEERING_RIGHT_PIN, HIGH);
-    } else {
-        digitalWrite(STEERING_LEFT_PIN, LOW);
-        digitalWrite(STEERING_RIGHT_PIN, LOW);
-    }
+  // Simple left/right steering based on percentage
+  if (steeringValue < 45) {
+      // Steer Left
+      digitalWrite(STEERING_LEFT_PIN, HIGH);
+      digitalWrite(STEERING_RIGHT_PIN, LOW);
+  } else if (steeringValue > 55) {
+      // Steer Right
+      digitalWrite(STEERING_LEFT_PIN, LOW);
+      digitalWrite(STEERING_RIGHT_PIN, HIGH);
+  } else {
+      // Go straight
+      digitalWrite(STEERING_LEFT_PIN, LOW);
+      digitalWrite(STEERING_RIGHT_PIN, LOW);
+  }
 }
+
 
 void killswitchLock() {
   analogWrite(PWM1, 0);
-  digitalWrite(GPIO6, LOW);
-  digitalWrite(GPIO7, LOW);
-  // Disable motor relay
-  digitalWrite(GPIO4, LOW);
+  digitalWrite(STEERING_LEFT_PIN, LOW);
+  digitalWrite(STEERING_RIGHT_PIN, LOW);
+  digitalWrite(MOTOR_RELAY, LOW);
   while(true) {
-    //Serial.println(analogRead(ADC3));
-    //Radio.Send(updateStatusVals().str, sizeof(boatMsg));
     delay(100);
   }
 }
@@ -280,21 +262,10 @@ void killswitchLock() {
 // Function to extract throttle and steering from received message
 void processUARTMessage(uint8_t *message, int length) {
     if (length == 2) {  // Expect exactly 2 bytes (throttle and steering)
-        // uint8_t throttle = message[0];  // First byte = throttle (0-100)
-        // uint8_t steering = message[1];  // Second byte = steering (0-100)
         automationThrottle = static_cast<int>(message[0]);
         automationSteering = static_cast<int>(message[1]);
-
-        // Serial.print("Received Throttle: ");
-        // Serial.println(throttle);
-        // Serial.print("Received Steering: ");
-        // Serial.println(steering);
-
-        
     } else {
-        //Serial.println("Invalid UART message length!");
-        //automationThrottle = static_cast<int>(message[0]);
-        //automationSteering = static_cast<int>(message[1]);
+      // Do nothing
     }
 }
 
@@ -315,10 +286,6 @@ void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
         controllerMsg temp;
         memcpy(temp.str, payload, sizeof(controllerMsg));
         if (memcmp(temp.status.secretCode, CONTROLLERMSG_CODE, sizeof(CONTROLLERMSG_CODE)) == 0) {
-        // Debug printing on the screen
-        //Serial.printf("Copied %s, fwd: %d, rev: %d, left: %d, right: %d, kill: %d \n",
-            //inboundMsg.status.secretCode, inboundMsg.status.isGoingForward, inboundMsg.status.isGoingBackward,
-            //inboundMsg.status.isSteeringLeft, inboundMsg.status.isSteeringRight, inboundMsg.status.killswitch);
         memcpy(inboundMsg.str, payload, sizeof(controllerMsg));
         }
 
