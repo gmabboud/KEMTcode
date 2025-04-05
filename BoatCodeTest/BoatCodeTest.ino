@@ -64,8 +64,8 @@ uint32_t signalTime = 0;
 int16_t lastRSSI = 0;
 
 // UART Communication Variables
-// uint8_t serialBuffer[BUFFER_SIZE];
-// int bufferSize;
+uint8_t serialBuffer[BUFFER_SIZE];
+int bufferSize;
 bool automationMode = false; // Flag for automation mode
 
 // Pin Definitions
@@ -92,7 +92,7 @@ static SSD1306Wire display(0x3c, 500000, SDA, SCL, GEOMETRY_128_64, GPIO10); // 
 
 
 void setup() {
-    //Serial1.begin(9600); // Initialize UART for communication with Raspberry Pi
+    Serial1.begin(9600); // Initialize UART for communication with Raspberry Pi
 
     // LoRa Setup in controller this is a separate function so this might not be necessary?
     RadioEvents.RxDone = OnRxDone;
@@ -112,7 +112,7 @@ void setup() {
                         LORA_SYMBOL_TIMEOUT, LORA_FIX_LENGTH_PAYLOAD_ON,
                         0, true, 0, 0, LORA_IQ_INVERSION_ON, true );
                     
-     GPS.begin();
+    //GPS.begin();
 
     pinMode(THROTTLE_PIN, OUTPUT);
     pinMode(STEERING_LEFT_PIN, OUTPUT);
@@ -122,8 +122,8 @@ void setup() {
     digitalWrite(GPIO4, HIGH);
 
     // Serial Debug Display
-    //outputs = displaySerial;
-    outputs = displaySteering;
+    outputs = displaySerial;
+    //outputs = displaySteering;
     // Initialize the display
     display.init();
     display.setFont(ArialMT_Plain_10);
@@ -131,16 +131,16 @@ void setup() {
 
 void loop() {
     // Read UART messages from Raspberry Pi
-    //bufferSize = Serial1.read(serialBuffer, TIMEOUT);
+    bufferSize = Serial1.read(serialBuffer, TIMEOUT);
     
     // DEBUG: Simulate receiving data (for testing)
     //int bufferSize = 2;  // Simulating a successful read of 2 bytes
     //processUARTMessage(serialBuffer, bufferSize);
     
-    // if (bufferSize) {  // If a valid message is received
-    //     // Process the message
-    //     processUARTMessage(serialBuffer, bufferSize);
-    // }
+    if (bufferSize) {  // If a valid message is received
+        // Process the message
+        processUARTMessage(serialBuffer, bufferSize);
+    }
 
     // Debug Displays
     // Clear the display
@@ -158,7 +158,7 @@ void loop() {
     // Perform actions based on automation or remote control
     doActions();
 
-    delay(100);  // Reduce CPU usage?
+    //delay(100);  // Reduce CPU usage?
     // // IDK if this is necessary either
     Radio.IrqProcess();
 }
@@ -300,23 +300,23 @@ void processUARTMessage(uint8_t *message, int length) {
 
 //TX and RX functions
 void OnTxDone() {
-    Serial1.println("Sent msg");
+    Serial.println("Sent msg");
 }
   
 void OnTxTimeout() {
-    Serial1.println("Tx timeout");
+    Serial.println("Tx timeout");
 }
   
 void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
     signalTime = millis();
     lastRSSI = rssi;
-    Serial1.println("Received");
+    Serial.println("Received");
     if (size == sizeof(controllerMsg)) {
         controllerMsg temp;
         memcpy(temp.str, payload, sizeof(controllerMsg));
         if (memcmp(temp.status.secretCode, CONTROLLERMSG_CODE, sizeof(CONTROLLERMSG_CODE)) == 0) {
         // Debug printing on the screen
-        //Serial1.printf("Copied %s, fwd: %d, rev: %d, left: %d, right: %d, kill: %d \n",
+        //Serial.printf("Copied %s, fwd: %d, rev: %d, left: %d, right: %d, kill: %d \n",
             //inboundMsg.status.secretCode, inboundMsg.status.isGoingForward, inboundMsg.status.isGoingBackward,
             //inboundMsg.status.isSteeringLeft, inboundMsg.status.isSteeringRight, inboundMsg.status.killswitch);
         memcpy(inboundMsg.str, payload, sizeof(controllerMsg));
@@ -331,23 +331,23 @@ void OnRxTimeout() {
 }
 
 // Serial Debug Display function
-// void displaySerial() {
-//     char messageBuffer[20];  // Small buffer for formatted output
+void displaySerial() {
+    char messageBuffer[20];  // Small buffer for formatted output
 
-//     // Format: "T:XX S:XX" (Throttle and Steering values)
-//     snprintf(messageBuffer, sizeof(messageBuffer), "T:%d S:%d", serialBuffer[0], serialBuffer[1]);
+    // Format: "T:XX S:XX" (Throttle and Steering values)
+    snprintf(messageBuffer, sizeof(messageBuffer), "T:%d S:%d", serialBuffer[0], serialBuffer[1]);
 
-//     display.setTextAlignment(TEXT_ALIGN_LEFT);
-//     display.setFont(ArialMT_Plain_16);
-//     display.drawString(0, 0, "Serial Message");
-//     display.drawString(0, 20, messageBuffer);  // Display formatted throttle & steering
-// }
-
-// Steering Debug Display function
-void displaySteering() {
-    String steering = String(analogRead(ADC3));
     display.setTextAlignment(TEXT_ALIGN_LEFT);
     display.setFont(ArialMT_Plain_16);
-    display.drawString(0, 0, "Current steering reading");
-    display.drawString(0, 20, steering);  // Display formatted throttle & steering
+    display.drawString(0, 0, "Serial Message");
+    display.drawString(0, 20, messageBuffer);  // Display formatted throttle & steering
 }
+
+// Steering Debug Display function
+// void displaySteering() {
+//     String steering = String(analogRead(ADC3));
+//     display.setTextAlignment(TEXT_ALIGN_LEFT);
+//     display.setFont(ArialMT_Plain_16);
+//     display.drawString(0, 0, "Current steering reading");
+//     display.drawString(0, 20, steering);  // Display formatted throttle & steering
+// }
