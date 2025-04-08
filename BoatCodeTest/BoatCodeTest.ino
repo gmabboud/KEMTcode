@@ -149,7 +149,7 @@ void loop() {
     // Perform actions based on automation or remote control
     doActions();
 
-    //delay(100);  // Reduce CPU usage?
+    delay(100);  // Reduce CPU usage?
     // // IDK if this is necessary either
     Radio.IrqProcess();
 }
@@ -157,10 +157,10 @@ void loop() {
 void doActions() {
   if (inboundMsg.status.killswitch) {
     killswitchLock();
-  }
+  } 
     
   //DEBUG:
-  automationMode = false;
+  automationMode = true;
 
   if (automationMode) {
       // Use automation values from Raspberry Pi
@@ -209,45 +209,55 @@ void doActions() {
   }
 }
 
+// Potentiometer limits
+int rudderMin = 1000;  // Tune this!!!!
+int rudderMax = 3000;  // Tune this!!!!
+const int rudderTolerance = 10; // Deadzone
+
 void automationControls(int throttleValue, int steeringValue) {
-  // Determine the target PWM value based on throttle percentage
-  int targetPWM = (throttleValue * UINT16_MAX) / 100;
+    // Throttle
+    int targetPWM = (throttleValue * UINT16_MAX) / 100;
 
-  if (throttleValue > 0) {
-      if (throttleState != 1) {
-          // New forward motion
-          throttleState = 1;
-          throttle = 1000;
-      } else {
-          // Ramp up
-          throttle = min(throttle + 2500, targetPWM);
-          // Optional safety cap
-          throttle = min(throttle, (10 * UINT16_MAX) / 20);
-      }
+    if (throttleValue > 0) {
+        if (throttleState != 1) {
+            throttleState = 1;
+            throttle = 1000;
+        } else {
+            throttle = min(throttle + 2500, targetPWM);
+            throttle = min(throttle, (10 * UINT16_MAX) / 20);  // Optional cap
+        }
 
-      digitalWrite(GPIO5, LOW);  // LOW = Forward
-      analogWrite(PWM1, throttle);
-  } else if (throttleValue == 0) {
-      throttleState = 0;
-      analogWrite(PWM1, 0);
-  }
+        digitalWrite(GPIO5, LOW);  // Forward
+        analogWrite(PWM1, throttle);
+    } else {
+        throttleState = 0;
+        analogWrite(PWM1, 0);
+    }
 
-  // Simple left/right steering based on percentage
-  if (steeringValue < 45) {
-      // Steer Left
-      digitalWrite(STEERING_LEFT_PIN, HIGH);
-      digitalWrite(STEERING_RIGHT_PIN, LOW);
-  } else if (steeringValue > 55) {
-      // Steer Right
-      digitalWrite(STEERING_LEFT_PIN, LOW);
-      digitalWrite(STEERING_RIGHT_PIN, HIGH);
-  } else {
-      // Go straight
-      digitalWrite(STEERING_LEFT_PIN, LOW);
-      digitalWrite(STEERING_RIGHT_PIN, LOW);
-  }
+    // Steering
+    int currentPos = analogRead(ADC3);  // Current rudder position
+    int targetPos = map(steeringValue, 0, 100, rudderMin, rudderMax);  // Target rudder position
+
+    if (abs(currentPos - targetPos) <= rudderTolerance) {
+        // Stop turning
+        digitalWrite(STEERING_LEFT_PIN, LOW);
+        digitalWrite(STEERING_RIGHT_PIN, LOW);
+    } else if (currentPos < targetPos) {
+        // Left?
+        digitalWrite(STEERING_LEFT_PIN, LOW);
+        digitalWrite(STEERING_RIGHT_PIN, HIGH);
+    } else {
+        // Right?
+        digitalWrite(STEERING_LEFT_PIN, HIGH);
+        digitalWrite(STEERING_RIGHT_PIN, LOW);
+    }
+    // DEBUG
+    if (steeringValue == 0) {
+        // Dont turn if steering value is 0
+        digitalWrite(STEERING_LEFT_PIN, LOW);
+        digitalWrite(STEERING_RIGHT_PIN, LOW);
+    }
 }
-
 
 void killswitchLock() {
   analogWrite(PWM1, 0);
@@ -297,7 +307,7 @@ void OnRxTimeout() {
     Serial.println("Rx timeout");
 }
 
-// Serial Debug Display function
+//Serial Debug Display function
 void displaySerial() {
     char messageBuffer[20];  // Small buffer for formatted output
 
@@ -310,7 +320,7 @@ void displaySerial() {
     display.drawString(0, 20, messageBuffer);  // Display formatted throttle & steering
 }
 
-// Steering Debug Display function
+////Steering Debug Display function
 // void displaySteering() {
 //     String steering = String(analogRead(ADC3));
 //     display.setTextAlignment(TEXT_ALIGN_LEFT);

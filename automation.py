@@ -68,20 +68,6 @@ def collision_detection():
 
     return None, None  # No valid detection
 
-### MAVLink interpretation function
-def request_servo_output():
-    print("Requesting SERVO_OUTPUT_RAW message...")
-    # Send a message interval request to the Pixhawk
-    connection.mav.command_long_send(
-        connection.target_system,    # Target system ID
-        connection.target_component, # Target component ID
-        mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL, # Command ID
-        0,                           # Confirmation
-        mavutil.mavlink.MAVLINK_MSG_ID_SERVO_OUTPUT_RAW, # Message ID
-        10000,                     # Interval in microseconds (1 second)
-        0, 0, 0, 0, 0                # Unused parameters
-    )
-
 ### Initialization
 
 # Connect to pixhawk
@@ -92,9 +78,6 @@ print("Heartbeat received!")
 
 # Initialize Camera
 cap = cv2.VideoCapture(0)
-
-# Request Message
-#request_servo_output()
 
 # Set up UART on Raspberry Pi UPDATE THIS SERIAL VALUE
 #Disable for debugging
@@ -128,20 +111,13 @@ while True:
         mav_steering = mav_steering if mav_steering is not None else 1500
         throttle = max(0, min(100, int((mav_throttle - 1000) / 10)))
         steering = max(0, min(100, int((mav_steering - 1000) / 10)))
-    
-    #Debug message
-    # Set debug throttle and steering values
-    if throttle is None:
-        throttle = 0
-    if steering is None:
-        steering = 150 #150 is beyond the range of steering
 
     # Create a bytes object with two uint8_t values for UART
     message = bytes([throttle, steering])
 
     #Disable for debugging
     ser.write(message)
-        
+
     # Debug sent message print
     print(f"Sent: Throttle={message[0]}, Steering={message[1]}")
 
