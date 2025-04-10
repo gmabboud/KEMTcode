@@ -32,8 +32,6 @@ def collision_detection():
     if not ret:
         return None, None
 
-    #imgHSV = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-
     # Apply HSV threshold
     mask = cv2.inRange(img, HSV_LOWER, HSV_UPPER)
 

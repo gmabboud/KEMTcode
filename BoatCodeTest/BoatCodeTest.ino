@@ -73,6 +73,7 @@ bool automationMode = false; // Flag for automation mode
 #define STEERING_LEFT_PIN GPIO7
 #define STEERING_RIGHT_PIN GPIO6
 #define MOTOR_RELAY GPIO4
+#define KILL_SWITCH GPIO10
 
 // Controller and Automation Steering and Throttle Values
 int controllerThrottle = 0;
@@ -116,7 +117,9 @@ void setup() {
     pinMode(STEERING_LEFT_PIN, OUTPUT);
     pinMode(STEERING_RIGHT_PIN, OUTPUT);
     pinMode(MOTOR_RELAY, OUTPUT);
+    pinMode(KILL_SWITCH, OUTPUT);
     digitalWrite(MOTOR_RELAY, HIGH);
+    digitalWrite(KILL_SWITCH, LOW);
 
     // Serial Debug Display
     outputs = displaySerial;
@@ -160,7 +163,7 @@ void doActions() {
   } 
     
   //DEBUG:
-  automationMode = true;
+  automationMode = false;
 
   if (automationMode) {
       // Use automation values from Raspberry Pi
@@ -174,7 +177,7 @@ void doActions() {
           } else {
             throttle += 2000;
             //throttle = min(throttle, (3*UINT16_MAX)/4);
-            throttle = min(throttle, (10*UINT16_MAX)/20);
+            throttle = min(throttle, (15*UINT16_MAX)/20);
             //throttle = min(inboundMsg.status.throttlePercentage, (18*UINT16_MAX/20));
           }
           digitalWrite(GPIO5, LOW);
@@ -186,7 +189,7 @@ void doActions() {
           } else {
             throttle += 2000;
             //throttle = min(throttle, (3*UINT16_MAX)/4);
-            throttle = min(throttle, (10*UINT16_MAX)/20);
+            throttle = min(throttle, (15*UINT16_MAX)/20);
             //throttle = min(inboundMsg.status.throttlePercentage, (18*UINT16_MAX/20));
           }
           digitalWrite(GPIO5, HIGH);
@@ -224,7 +227,7 @@ void automationControls(int throttleValue, int steeringValue) {
             throttle = 1000;
         } else {
             throttle = min(throttle + 2500, targetPWM);
-            throttle = min(throttle, (10 * UINT16_MAX) / 20);  // Optional cap
+            throttle = min(throttle, (15 * UINT16_MAX) / 20);  // Optional cap
         }
 
         digitalWrite(GPIO5, LOW);  // Forward
@@ -259,11 +262,13 @@ void automationControls(int throttleValue, int steeringValue) {
     }
 }
 
+// Figure out why this be making the throttle turn on high if its still doing it
 void killswitchLock() {
   analogWrite(PWM1, 0);
   digitalWrite(STEERING_LEFT_PIN, LOW);
   digitalWrite(STEERING_RIGHT_PIN, LOW);
   digitalWrite(MOTOR_RELAY, LOW);
+  digitalWrite(KILL_SWITCH, HIGH);
   while(true) {
     delay(100);
   }
