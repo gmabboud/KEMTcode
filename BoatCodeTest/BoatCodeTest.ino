@@ -119,8 +119,8 @@ void setup() {
     digitalWrite(MOTOR_RELAY, HIGH);
 
     // Serial Debug Display
-    outputs = displaySerial;
-    //outputs = displaySteering;
+    //outputs = displaySerial;
+    outputs = displaySteering;
     // Initialize the display
     display.init();
     display.setFont(ArialMT_Plain_10);
@@ -210,9 +210,9 @@ void doActions() {
 }
 
 // Potentiometer limits
-int rudderMin = 1000;  // Tune this!!!!
+int rudderMin = 0;  // Tune this!!!!
 int rudderMax = 3000;  // Tune this!!!!
-const int rudderTolerance = 10; // Deadzone
+const int rudderTolerance = 20; // Tolerance
 
 void automationControls(int throttleValue, int steeringValue) {
     // Throttle
@@ -308,23 +308,23 @@ void OnRxTimeout() {
 }
 
 //Serial Debug Display function
-void displaySerial() {
-    char messageBuffer[20];  // Small buffer for formatted output
+// void displaySerial() {
+//     char messageBuffer[20];  // Small buffer for formatted output
 
-    // Format: "T:XX S:XX" (Throttle and Steering values)
-    snprintf(messageBuffer, sizeof(messageBuffer), "T:%d S:%d", serialBuffer[0], serialBuffer[1]);
+//     // Format: "T:XX S:XX" (Throttle and Steering values)
+//     snprintf(messageBuffer, sizeof(messageBuffer), "T:%d S:%d", serialBuffer[0], serialBuffer[1]);
 
-    display.setTextAlignment(TEXT_ALIGN_LEFT);
-    display.setFont(ArialMT_Plain_16);
-    display.drawString(0, 0, "Serial Message");
-    display.drawString(0, 20, messageBuffer);  // Display formatted throttle & steering
-}
-
-////Steering Debug Display function
-// void displaySteering() {
-//     String steering = String(analogRead(ADC3));
 //     display.setTextAlignment(TEXT_ALIGN_LEFT);
 //     display.setFont(ArialMT_Plain_16);
-//     display.drawString(0, 0, "Current steering reading");
-//     display.drawString(0, 20, steering);  // Display formatted throttle & steering
+//     display.drawString(0, 0, "Serial Message");
+//     display.drawString(0, 20, messageBuffer);  // Display formatted throttle & steering
 // }
+
+//Steering Debug Display function
+void displaySteering() {
+    String steering = String(analogRead(ADC3));
+    display.setTextAlignment(TEXT_ALIGN_LEFT);
+    display.setFont(ArialMT_Plain_16);
+    display.drawString(0, 0, "Current steering reading");
+    display.drawString(0, 20, steering);  // Display formatted throttle & steering
+}
