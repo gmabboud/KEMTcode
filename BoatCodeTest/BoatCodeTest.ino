@@ -38,7 +38,7 @@ union controllerMsg {
       bool isSteeringLeft;
       bool isSteeringRight;
       bool killswitch;
-      //bool automation;
+      bool automation;
     } status;
     uint8_t str[13];
   } inboundMsg;
@@ -73,7 +73,8 @@ bool automationMode = false; // Flag for automation mode
 #define STEERING_LEFT_PIN GPIO7
 #define STEERING_RIGHT_PIN GPIO6
 #define MOTOR_RELAY GPIO4
-#define KILL_SWITCH GPIO10
+#define KILL_SWITCH GPIO9 //This shit is being extremely weird
+
 
 // Controller and Automation Steering and Throttle Values
 int controllerThrottle = 0;
@@ -119,7 +120,7 @@ void setup() {
     pinMode(MOTOR_RELAY, OUTPUT);
     pinMode(KILL_SWITCH, OUTPUT);
     digitalWrite(MOTOR_RELAY, HIGH);
-    digitalWrite(KILL_SWITCH, LOW);
+    digitalWrite(KILL_SWITCH, HIGH);
 
     // Serial Debug Display
     //outputs = displaySerial;
@@ -163,7 +164,8 @@ void doActions() {
   } 
     
   //DEBUG:
-  automationMode = false;
+  //automationMode = false;
+  automationMode = inboundMsg.status.automation;
 
   if (automationMode) {
       // Use automation values from Raspberry Pi
@@ -175,9 +177,9 @@ void doActions() {
             throttleState = 1;
             throttle = 1000;
           } else {
-            throttle += 2000;
+            throttle += 1500;
             //throttle = min(throttle, (3*UINT16_MAX)/4);
-            throttle = min(throttle, (15*UINT16_MAX)/20);
+            throttle = min(throttle, (13*UINT16_MAX)/20);
             //throttle = min(inboundMsg.status.throttlePercentage, (18*UINT16_MAX/20));
           }
           digitalWrite(GPIO5, LOW);
@@ -187,9 +189,9 @@ void doActions() {
             throttleState = -1;
             throttle = 1000;
           } else {
-            throttle += 2000;
+            throttle += 1500;
             //throttle = min(throttle, (3*UINT16_MAX)/4);
-            throttle = min(throttle, (15*UINT16_MAX)/20);
+            throttle = min(throttle, (13*UINT16_MAX)/20);
             //throttle = min(inboundMsg.status.throttlePercentage, (18*UINT16_MAX/20));
           }
           digitalWrite(GPIO5, HIGH);
@@ -213,8 +215,8 @@ void doActions() {
 }
 
 // Potentiometer limits
-int rudderMin = 0;  // Tune this!!!!
-int rudderMax = 3000;  // Tune this!!!!
+int rudderMin = 200;  // Tune this!!!!
+int rudderMax = 4000;  // Tune this!!!!
 const int rudderTolerance = 20; // Tolerance
 
 void automationControls(int throttleValue, int steeringValue) {
@@ -227,7 +229,7 @@ void automationControls(int throttleValue, int steeringValue) {
             throttle = 1000;
         } else {
             throttle = min(throttle + 2500, targetPWM);
-            throttle = min(throttle, (15 * UINT16_MAX) / 20);  // Optional cap
+            throttle = min(throttle, (7 * UINT16_MAX) / 20);  // Optional cap
         }
 
         digitalWrite(GPIO5, LOW);  // Forward
@@ -267,8 +269,8 @@ void killswitchLock() {
   analogWrite(PWM1, 0);
   digitalWrite(STEERING_LEFT_PIN, LOW);
   digitalWrite(STEERING_RIGHT_PIN, LOW);
-  digitalWrite(MOTOR_RELAY, LOW);
-  digitalWrite(KILL_SWITCH, HIGH);
+  digitalWrite(MOTOR_RELAY, HIGH);
+  digitalWrite(KILL_SWITCH, LOW);
   while(true) {
     delay(100);
   }

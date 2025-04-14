@@ -24,6 +24,15 @@
 #define RX_TIMEOUT_VALUE 1000
 #define BUFFER_SIZE 30 // Define the payload size here
 
+// Control Assignments
+//#define KILL_SWITCH GPIO4
+#define KILL_SWITCH GPIO6
+//#define AUTOMATION_SWITCH GPIO6
+#define AUTOMATION_SWITCH GPIO4
+#define SWITCH_DISPLAYS GPIO2
+#define THROTTLE_POT ADC1
+#define STEERING_POT ADC3
+
 // Full throttle: 4095
 // Full throttle backwards: 240
 // Middle (neutral no throttle): 2500
@@ -53,7 +62,7 @@ union controllerMsg {
     bool isSteeringLeft;
     bool isSteeringRight;
     bool killswitch;
-    //bool automation;
+    bool automation;
   } status;
   uint8_t str[13];
 };
@@ -93,7 +102,7 @@ controllerMsg updateStatusVals() {
   memcpy(outboundMsg.status.secretCode, CONTROLLERMSG_CODE, sizeof(CONTROLLERMSG_CODE));  
   
   // Update throttle commands
-  int reading1 = analogRead(ADC1);
+  int reading1 = analogRead(THROTTLE_POT);
     if (reading1 > JOYSTICK1_NEUTRAL + JOYSTICK1_DEADZONE || reading1 < JOYSTICK1_NEUTRAL - JOYSTICK1_DEADZONE) {
       // Joystick is outside the deadzone
       if (reading1 > JOYSTICK1_NEUTRAL + JOYSTICK1_DEADZONE) {
@@ -110,7 +119,7 @@ controllerMsg updateStatusVals() {
     }
 
     // Update steering commands with deadzone for Joystick 2
-    int reading2 = analogRead(ADC2);
+    int reading2 = analogRead(STEERING_POT);
     if (reading2 > JOYSTICK2_NEUTRAL + JOYSTICK2_DEADZONE || reading2 < JOYSTICK2_NEUTRAL - JOYSTICK2_DEADZONE) {
       // Joystick is outside the deadzone
       if (reading2 > JOYSTICK2_NEUTRAL + JOYSTICK2_DEADZONE) {
@@ -127,10 +136,10 @@ controllerMsg updateStatusVals() {
     }
 
   // Update killswitch
-  outboundMsg.status.killswitch = digitalRead(GPIO3);
+  outboundMsg.status.killswitch = digitalRead(KILL_SWITCH);
   
   // Update automation
-  //outboundMsg.status.automation = digitalRead(GPIO7);
+  outboundMsg.status.automation = digitalRead(AUTOMATION_SWITCH);
 
   return outboundMsg;
 }
@@ -145,7 +154,7 @@ void displayTeamName() {
 }
 
 void displayThrottle() {
-  int throtReading = analogRead(ADC1);
+  int throtReading = analogRead(THROTTLE_POT);
   
   if (throtReading < JOYSTICK1_NEUTRAL + JOYSTICK1_DEADZONE && throtReading > JOYSTICK1_NEUTRAL - JOYSTICK1_DEADZONE) {
     snprintf(displayString, sizeof(displayString), "Idle:  %d", throtReading);
@@ -162,7 +171,7 @@ void displayThrottle() {
 }
 
 void displaySteering() {
-  int steerReading = analogRead(ADC2);
+  int steerReading = analogRead(STEERING_POT);
   
   if (steerReading < JOYSTICK2_NEUTRAL + JOYSTICK2_DEADZONE && steerReading > JOYSTICK2_NEUTRAL - JOYSTICK2_DEADZONE) {
     snprintf(displayString, sizeof(displayString), "Center:   %d", steerReading);
@@ -179,7 +188,7 @@ void displaySteering() {
 }
 
 void displayKillSwitch() {
-  if (digitalRead(GPIO3)) {
+  if (digitalRead(KILL_SWITCH)) {
     snprintf(displayString, sizeof(displayString), "Killswitch ON");
   } else {
     snprintf(displayString, sizeof(displayString), "Killswitch OFF");
@@ -190,17 +199,17 @@ void displayKillSwitch() {
   display.drawString(0, 0, displayString);
 }
 
-// void displayAutomation() {
-//   if (digitalRead(GPIO7)) {
-//     snprintf(displayString, sizeof(displayString), "Automation ON");
-//   } else {
-//     snprintf(displayString, sizeof(displayString), "Automation OFF");
-//   }
+void displayAutomation() {
+  if (digitalRead(AUTOMATION_SWITCH)) {
+    snprintf(displayString, sizeof(displayString), "Automation ON");
+  } else {
+    snprintf(displayString, sizeof(displayString), "Automation OFF");
+  }
 
-//   display.setTextAlignment(TEXT_ALIGN_LEFT);
-//   display.setFont(ArialMT_Plain_16);
-//   display.drawString(0, 0, displayString);
-// }
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.setFont(ArialMT_Plain_16);
+  display.drawString(0, 0, displayString);
+}
 
 void displayConnectionStrength() {
   if (millis() - signalTime < 1000) {
@@ -254,7 +263,7 @@ void VextOFF(void) {//Vext default OFF
 void writeDisplay(int select) {
   select %= 8;
   // Removed displayAutomation, displayConnectionStrength, displayPosition, displaySpeed, displaySteeringPosition from the outputs list
-  DisplayFunc outputs[] = {displayTeamName, displayThrottle, displaySteering, displayKillSwitch, displayConnectionStrength, displayPosition, displaySpeed, displaySteeringPosition};
+  DisplayFunc outputs[] = {displayTeamName, displayThrottle, displaySteering, displayKillSwitch, displayAutomation, displayConnectionStrength, displayPosition, displaySpeed, displaySteeringPosition};
 
   // Clear the display
   display.clear();
@@ -327,10 +336,10 @@ void setup() {
   display.setFont(ArialMT_Plain_10);
   
   // Read button press
-  pinMode(GPIO1, INPUT_PULLDOWN);
+  pinMode(SWITCH_DISPLAYS, INPUT_PULLDOWN);
   pinMode(GPIO2, INPUT_PULLDOWN);
-  pinMode(GPIO3, INPUT_PULLDOWN);
-  pinMode(GPIO7, INPUT_PULLDOWN);
+  pinMode(KILL_SWITCH, INPUT_PULLDOWN);
+  pinMode(AUTOMATION_SWITCH, INPUT_PULLDOWN);
   
 }
 
@@ -338,13 +347,13 @@ void loop() {
   static uint32_t debounceTimer = 0;
 
   // If button pressed, switch display.
-  if (digitalRead(GPIO1) && (millis() - debounceTimer > 500)) {
+  if (digitalRead(SWITCH_DISPLAYS) && (millis() - debounceTimer > 500)) {
     debounceTimer = millis();
     displaySelector++;
   }
 
   // If button pressed, switch display.
-  if (digitalRead(GPIO2) && (millis() - debounceTimer > 500)) {
+  if (digitalRead(GPIO5) && (millis() - debounceTimer > 500)) {
     debounceTimer = millis();
     displaySelector--;
   }
