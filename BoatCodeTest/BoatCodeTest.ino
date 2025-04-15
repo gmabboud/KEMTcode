@@ -34,7 +34,7 @@ union controllerMsg {
       uint8_t secretCode[8];
       bool isGoingForward;
       bool isGoingBackward;
-      //uint8_t throttlePercentage;
+      uint16_t throttlePercentage;
       bool isSteeringLeft;
       bool isSteeringRight;
       bool killswitch;
@@ -73,7 +73,7 @@ bool automationMode = false; // Flag for automation mode
 #define STEERING_LEFT_PIN GPIO7
 #define STEERING_RIGHT_PIN GPIO6
 #define MOTOR_RELAY GPIO4
-#define KILL_SWITCH GPIO9 //This shit is being extremely weird
+#define KILL_SWITCH GPIO9
 
 
 // Controller and Automation Steering and Throttle Values
@@ -85,6 +85,7 @@ int automationSteering = 0;
 // Legacy throttle and throttle state variables
 int throttle = 0;
 int throttleState = 0;
+int variableThrottle = 0;
 typedef void (*DisplayFunc)(void);
 DisplayFunc outputs;
 
@@ -122,9 +123,8 @@ void setup() {
     digitalWrite(MOTOR_RELAY, HIGH);
     digitalWrite(KILL_SWITCH, HIGH);
 
-    // Serial Debug Display
-    //outputs = displaySerial;
-    outputs = displaySteering;
+    // Debug Displays
+    outputs = displaySerial;
     // Initialize the display
     display.init();
     display.setFont(ArialMT_Plain_10);
@@ -144,54 +144,49 @@ void loop() {
     outputs();
     display.display();  
 
-
-    // // NOTE: I'm not sure this code is even correct or what we want to do but it is what the previous code did to work
     Radio.Rx(500);
-    delay(100);
-    Radio.IrqProcess();
+    //delay(100);
+    //Radio.IrqProcess();
 
     // Perform actions based on automation or remote control
     doActions();
 
     delay(100);  // Reduce CPU usage?
-    // // IDK if this is necessary either
-    Radio.IrqProcess();
+    
+    //Radio.IrqProcess();
 }
 
 void doActions() {
   if (inboundMsg.status.killswitch) {
     killswitchLock();
   } 
-    
-  //DEBUG:
-  //automationMode = false;
+
   automationMode = inboundMsg.status.automation;
 
   if (automationMode) {
       // Use automation values from Raspberry Pi
       automationControls(automationThrottle, automationSteering);
   } else {
-      // Remote control values
+      // Use remote control values
       if (inboundMsg.status.isGoingForward) {
+          variableThrottle = map(inboundMsg.status.throttlePercentage, 0, 100, 2500, 4095);
           if (throttleState != 1) {
             throttleState = 1;
             throttle = 1000;
           } else {
-            throttle += 1500;
-            //throttle = min(throttle, (3*UINT16_MAX)/4);
-            throttle = min(throttle, (13*UINT16_MAX)/20);
-            //throttle = min(inboundMsg.status.throttlePercentage, (18*UINT16_MAX/20));
+            throttle = min(throttle + 2000, variableThrottle);
+            throttle = min(throttle, (8 * UINT16_MAX) / 20);
           }
           digitalWrite(GPIO5, LOW);
           analogWrite(PWM1, throttle);
       } else if (inboundMsg.status.isGoingBackward){
+          variableThrottle = map(inboundMsg.status.throttlePercentage, 0, 100, 2500, 240);
           if (throttleState != -1) {
             throttleState = -1;
             throttle = 1000;
           } else {
-            throttle += 1500;
-            //throttle = min(throttle, (3*UINT16_MAX)/4);
-            throttle = min(throttle, (13*UINT16_MAX)/20);
+            throttle += 2000;
+            throttle = min(throttle, (12*UINT16_MAX)/20);
             //throttle = min(inboundMsg.status.throttlePercentage, (18*UINT16_MAX/20));
           }
           digitalWrite(GPIO5, HIGH);
@@ -217,7 +212,7 @@ void doActions() {
 // Potentiometer limits
 int rudderMin = 200;  // Tune this!!!!
 int rudderMax = 4000;  // Tune this!!!!
-const int rudderTolerance = 20; // Tolerance
+const int rudderTolerance = 30; // Tolerance
 
 void automationControls(int throttleValue, int steeringValue) {
     // Throttle
@@ -228,8 +223,8 @@ void automationControls(int throttleValue, int steeringValue) {
             throttleState = 1;
             throttle = 1000;
         } else {
-            throttle = min(throttle + 2500, targetPWM);
-            throttle = min(throttle, (7 * UINT16_MAX) / 20);  // Optional cap
+            throttle = min(throttle + 2000, targetPWM);
+            throttle = min(throttle, (8 * UINT16_MAX) / 20); 
         }
 
         digitalWrite(GPIO5, LOW);  // Forward
@@ -240,14 +235,14 @@ void automationControls(int throttleValue, int steeringValue) {
     }
 
     // Steering
-    int currentPos = analogRead(ADC3);  // Current rudder position
-    int targetPos = map(steeringValue, 0, 100, rudderMin, rudderMax);  // Target rudder position
+    int currentPos = analogRead(ADC3);
+    int targetPos = map(steeringValue, 0, 100, rudderMin, rudderMax);
 
     if (abs(currentPos - targetPos) <= rudderTolerance) {
         // Stop turning
         digitalWrite(STEERING_LEFT_PIN, LOW);
         digitalWrite(STEERING_RIGHT_PIN, LOW);
-    } else if (currentPos < targetPos) {
+    } else if (currentPos > targetPos) {
         // Left?
         digitalWrite(STEERING_LEFT_PIN, LOW);
         digitalWrite(STEERING_RIGHT_PIN, HIGH);
@@ -269,7 +264,6 @@ void killswitchLock() {
   analogWrite(PWM1, 0);
   digitalWrite(STEERING_LEFT_PIN, LOW);
   digitalWrite(STEERING_RIGHT_PIN, LOW);
-  digitalWrite(MOTOR_RELAY, HIGH);
   digitalWrite(KILL_SWITCH, LOW);
   while(true) {
     delay(100);
@@ -315,23 +309,15 @@ void OnRxTimeout() {
 }
 
 //Serial Debug Display function
-// void displaySerial() {
-//     char messageBuffer[20];  // Small buffer for formatted output
+void displaySerial() {
+    char messageBuffer[20];  // Small buffer for formatted output
 
-//     // Format: "T:XX S:XX" (Throttle and Steering values)
-//     snprintf(messageBuffer, sizeof(messageBuffer), "T:%d S:%d", serialBuffer[0], serialBuffer[1]);
+    // Format: "T:XX S:XX" (Throttle and Steering values)
+    snprintf(messageBuffer, sizeof(messageBuffer), "T:%d S:%d", serialBuffer[0], serialBuffer[1]);
 
-//     display.setTextAlignment(TEXT_ALIGN_LEFT);
-//     display.setFont(ArialMT_Plain_16);
-//     display.drawString(0, 0, "Serial Message");
-//     display.drawString(0, 20, messageBuffer);  // Display formatted throttle & steering
-// }
-
-//Steering Debug Display function
-void displaySteering() {
-    String steering = String(analogRead(ADC3));
     display.setTextAlignment(TEXT_ALIGN_LEFT);
     display.setFont(ArialMT_Plain_16);
-    display.drawString(0, 0, "Current steering reading");
-    display.drawString(0, 20, steering);  // Display formatted throttle & steering
+    display.drawString(0, 0, "Automation Status");
+    display.drawString(0, 20, messageBuffer);  // Display formatted throttle & steering
+
 }

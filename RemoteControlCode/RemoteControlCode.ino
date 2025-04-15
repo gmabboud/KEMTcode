@@ -59,6 +59,7 @@ union controllerMsg {
     uint8_t secretCode[8];
     bool isGoingForward;
     bool isGoingBackward;
+    uint16_t throttlePercentage;
     bool isSteeringLeft;
     bool isSteeringRight;
     bool killswitch;
@@ -103,37 +104,38 @@ controllerMsg updateStatusVals() {
   
   // Update throttle commands
   int reading1 = analogRead(THROTTLE_POT);
-    if (reading1 > JOYSTICK1_NEUTRAL + JOYSTICK1_DEADZONE || reading1 < JOYSTICK1_NEUTRAL - JOYSTICK1_DEADZONE) {
-      // Joystick is outside the deadzone
-      if (reading1 > JOYSTICK1_NEUTRAL + JOYSTICK1_DEADZONE) {
-        outboundMsg.status.isGoingForward = true;
-        outboundMsg.status.isGoingBackward = false;
-      } else {
-        outboundMsg.status.isGoingForward = false;
-        outboundMsg.status.isGoingBackward = true;
-      }
-    } else {
-      // Joystick is within the deadzone
-      outboundMsg.status.isGoingForward = false;
+  outboundMsg.status.throttlePercentage = reading1;
+  if (reading1 > JOYSTICK1_NEUTRAL + JOYSTICK1_DEADZONE || reading1 < JOYSTICK1_NEUTRAL - JOYSTICK1_DEADZONE) {
+    // Joystick is outside the deadzone
+    if (reading1 > JOYSTICK1_NEUTRAL + JOYSTICK1_DEADZONE) {
+      outboundMsg.status.isGoingForward = true;
       outboundMsg.status.isGoingBackward = false;
-    }
-
-    // Update steering commands with deadzone for Joystick 2
-    int reading2 = analogRead(STEERING_POT);
-    if (reading2 > JOYSTICK2_NEUTRAL + JOYSTICK2_DEADZONE || reading2 < JOYSTICK2_NEUTRAL - JOYSTICK2_DEADZONE) {
-      // Joystick is outside the deadzone
-      if (reading2 > JOYSTICK2_NEUTRAL + JOYSTICK2_DEADZONE) {
-        outboundMsg.status.isSteeringRight = true;
-        outboundMsg.status.isSteeringLeft = false;
-      } else {
-        outboundMsg.status.isSteeringRight = false;
-        outboundMsg.status.isSteeringLeft = true;
-      }
     } else {
-      // Joystick is within the deadzone
-      outboundMsg.status.isSteeringRight = false;
-      outboundMsg.status.isSteeringLeft = false;
+      outboundMsg.status.isGoingForward = false;
+      outboundMsg.status.isGoingBackward = true;
     }
+  } else {
+    // Joystick is within the deadzone
+    outboundMsg.status.isGoingForward = false;
+    outboundMsg.status.isGoingBackward = false;
+  }
+
+  // Update steering commands with deadzone for Joystick 2
+  int reading2 = analogRead(STEERING_POT);
+  if (reading2 > JOYSTICK2_NEUTRAL + JOYSTICK2_DEADZONE || reading2 < JOYSTICK2_NEUTRAL - JOYSTICK2_DEADZONE) {
+    // Joystick is outside the deadzone
+    if (reading2 > JOYSTICK2_NEUTRAL + JOYSTICK2_DEADZONE) {
+      outboundMsg.status.isSteeringRight = true;
+      outboundMsg.status.isSteeringLeft = false;
+    } else {
+      outboundMsg.status.isSteeringRight = false;
+      outboundMsg.status.isSteeringLeft = true;
+    }
+  } else {
+    // Joystick is within the deadzone
+    outboundMsg.status.isSteeringRight = false;
+    outboundMsg.status.isSteeringLeft = false;
+  }
 
   // Update killswitch
   outboundMsg.status.killswitch = digitalRead(KILL_SWITCH);
