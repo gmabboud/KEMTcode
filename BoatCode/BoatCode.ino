@@ -188,7 +188,7 @@ void doActions() {
             throttle = 1000;
           } else {
             throttle += 2000;
-            throttle = min(throttle, (12*UINT16_MAX)/20);
+            throttle = min(throttle, (7*UINT16_MAX)/20);
           }
           digitalWrite(GPIO5, HIGH);
           analogWrite(PWM1, throttle);
