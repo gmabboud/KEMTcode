@@ -34,7 +34,6 @@ union controllerMsg {
       uint8_t secretCode[8];
       bool isGoingForward;
       bool isGoingBackward;
-      //uint8_t throttlePercentage;
       bool isSteeringLeft;
       bool isSteeringRight;
       bool killswitch;
@@ -160,6 +159,12 @@ void doActions() {
     killswitchLock();
   } 
 
+  if ((millis() - signalTime) > 2000) {
+    analogWrite(PWM1, 0);
+    digitalWrite(GPIO6, LOW);
+    digitalWrite(GPIO7, LOW);
+    return;
+  }
   automationMode = inboundMsg.status.automation;
 
   if (automationMode) {
@@ -302,6 +307,7 @@ void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
   
 void OnRxTimeout() {
     Serial.println("Rx timeout");
+    killswitchLock();
 }
 
 //Serial Debug Display function

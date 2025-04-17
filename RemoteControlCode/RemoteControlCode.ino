@@ -25,10 +25,8 @@
 #define BUFFER_SIZE 30 // Define the payload size here
 
 // Control Assignments
-//#define KILL_SWITCH GPIO4
-#define KILL_SWITCH GPIO6
-//#define AUTOMATION_SWITCH GPIO6
-#define AUTOMATION_SWITCH GPIO4
+#define KILL_SWITCH GPIO4
+#define AUTOMATION_SWITCH GPIO6
 #define SWITCH_DISPLAYS GPIO2
 #define THROTTLE_POT ADC1
 #define STEERING_POT ADC3
@@ -43,7 +41,7 @@
 #define JOYSTICK1_NEUTRAL 2500  // Center of the throttle
 #define JOYSTICK2_NEUTRAL 3063  // Center of the steering
 
-#define JOYSTICK1_DEADZONE 1500  // Deadzone for the throttle
+#define JOYSTICK1_DEADZONE 800  // Deadzone for the throttle
 #define JOYSTICK2_DEADZONE 500  // Deadzone for the steering
 
 //Global Variables
@@ -59,7 +57,6 @@ union controllerMsg {
     uint8_t secretCode[8];
     bool isGoingForward;
     bool isGoingBackward;
-    uint16_t throttlePercentage;
     bool isSteeringLeft;
     bool isSteeringRight;
     bool killswitch;
@@ -104,7 +101,6 @@ controllerMsg updateStatusVals() {
   
   // Update throttle commands
   int reading1 = analogRead(THROTTLE_POT);
-  outboundMsg.status.throttlePercentage = reading1;
   if (reading1 > JOYSTICK1_NEUTRAL + JOYSTICK1_DEADZONE || reading1 < JOYSTICK1_NEUTRAL - JOYSTICK1_DEADZONE) {
     // Joystick is outside the deadzone
     if (reading1 > JOYSTICK1_NEUTRAL + JOYSTICK1_DEADZONE) {
